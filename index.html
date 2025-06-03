@@ -5,36 +5,91 @@
   <title>Operation: Backdoor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
-    input, button { padding: 0.5rem; margin-top: 1rem; font-size: 1rem; }
-    #result { margin-top: 2rem; background: white; padding: 1rem; border-radius: 8px; }
+    body { font-family: sans-serif; padding: 2rem; background: #f0f0f0; }
+    select, button { font-size: 1rem; padding: 0.5rem; margin-top: 1rem; width: 100%; max-width: 400px; }
+    #result { margin-top: 2rem; padding: 1rem; background: white; border-radius: 8px; max-width: 600px; }
+    h2 { color: #444; }
+    
+    /* Loading spinner styles */
+    .loading {
+      position: relative;
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .loading::after {
+      content: "";
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 0.6s linear infinite;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
   <h2>Operation: Backdoor</h2>
-  <p>พิมพ์ชื่อของคุณเพื่อดูบทบาทและภารกิจ</p>
-  <input type="text" id="name" placeholder="ชื่อของคุณ">
-  <button onclick="fetchRole()">ดูคำแนะนำ</button>
+  <p>เลือกชื่อของคุณเพื่อดูบทบาทและคำแนะนำ</p>
+
+  <select id="nameDropdown">
+    <option value="">-- เลือกชื่อของคุณ --</option>
+  </select>
+  <br>
+  <button id="fetchButton" onclick="fetchRole()">ดูคำแนะนำ</button>
 
   <div id="result"></div>
 
   <script>
-    async function fetchRole() {
-      const name = document.getElementById('name').value.trim();
-      if (!name) return alert("กรุณากรอกชื่อ");
+    const API_URL = "https://script.google.com/macros/s/AKfycbyuO0ZRXWDpGiavrTbuQMz7AB0jCoIC1ArfTTC_W1hTiUELi62LE-3E6dVPdT6ePeWQ/exec";
 
-      const res = await fetch(`https://script.google.com/macros/s/AKfycbywKMOTTW3O4I3oexNSSQUnBX5JIyiBCktZGbM0D5BwBIacZ_AWUk3wYKx46WUptZbI/exec?name=${encodeURIComponent(name)}`);
-      const text = await res.text();
+    window.onload = async () => {
+      try {
+        const res = await fetch(`${API_URL}?list=true`);
+        const names = await res.json();
+        const dropdown = document.getElementById("nameDropdown");
+
+        names.forEach(name => {
+          const option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          dropdown.appendChild(option);
+        });
+      } catch (e) {
+        alert("โหลดรายชื่อไม่สำเร็จ");
+      }
+    };
+
+    async function fetchRole() {
+      const button = document.getElementById("fetchButton");
+      const name = document.getElementById("nameDropdown").value;
+      if (!name) return alert("กรุณาเลือกชื่อ");
 
       try {
+        // Show loading state
+        button.classList.add("loading");
+        button.disabled = true;
+
+        const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`);
+        const text = await res.text();
         const data = JSON.parse(text);
-        document.getElementById('result').innerHTML = `
+        
+        document.getElementById("result").innerHTML = `
           <h3>${data.name}</h3>
-          <strong>${data.role}</strong><br><br>
+          <strong>บทบาท: ${data.role}</strong><br><br>
           <p>${data.instruction}</p>
         `;
       } catch {
-        document.getElementById('result').innerHTML = `<p>ไม่พบชื่อในระบบ</p>`;
+        document.getElementById("result").innerHTML = `<p>ไม่พบข้อมูลของคุณ</p>`;
+      } finally {
+        // Remove loading state
+        button.classList.remove("loading");
+        button.disabled = false;
       }
     }
   </script>
