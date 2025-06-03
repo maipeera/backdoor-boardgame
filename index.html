@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Operation: Backdoor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
+    input, button { padding: 0.5rem; margin-top: 1rem; font-size: 1rem; }
+    #result { margin-top: 2rem; background: white; padding: 1rem; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h2>Operation: Backdoor</h2>
+  <p>พิมพ์ชื่อของคุณเพื่อดูบทบาทและภารกิจ</p>
+  <input type="text" id="name" placeholder="ชื่อของคุณ">
+  <button onclick="fetchRole()">ดูคำแนะนำ</button>
+
+  <div id="result"></div>
+
+  <script>
+    async function fetchRole() {
+      const name = document.getElementById('name').value.trim();
+      if (!name) return alert("กรุณากรอกชื่อ");
+
+      const res = await fetch(`https://script.google.com/macros/s/AKfycbywKMOTTW3O4I3oexNSSQUnBX5JIyiBCktZGbM0D5BwBIacZ_AWUk3wYKx46WUptZbI/exec?name=${encodeURIComponent(name)}`);
+      const text = await res.text();
+
+      try {
+        const data = JSON.parse(text);
+        document.getElementById('result').innerHTML = `
+          <h3>${data.name}</h3>
+          <strong>${data.role}</strong><br><br>
+          <p>${data.instruction}</p>
+        `;
+      } catch {
+        document.getElementById('result').innerHTML = `<p>ไม่พบชื่อในระบบ</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
