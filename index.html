@@ -4,19 +4,13 @@
   <meta charset="UTF-8">
   <title>Operation: Backdoor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f0f0f0; }
-    select, button { font-size: 1rem; padding: 0.5rem; margin-top: 1rem; width: 100%; max-width: 400px; }
-    #result { margin-top: 2rem; padding: 1rem; background: white; border-radius: 8px; max-width: 600px; }
-    h2 { color: #444; }
-    
-    /* Loading spinner styles */
-    .loading {
-      position: relative;
-      opacity: 0.7;
-      cursor: not-allowed;
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
-    .loading::after {
+    
+    .btn-loading::after {
       content: "";
       display: inline-block;
       width: 1em;
@@ -28,31 +22,47 @@
       margin-left: 0.5rem;
       vertical-align: middle;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
   </style>
 </head>
-<body>
-  <h2>Operation: Backdoor</h2>
-  <p>เลือกชื่อของคุณเพื่อดูบทบาทและคำแนะนำ</p>
+<body class="bg-gray-100 p-8 min-h-screen">
+  <div class="max-w-2xl mx-auto">
+    <h2 class="text-3xl font-bold text-gray-800 mb-4">Operation: Backdoor</h2>
+    <p class="text-gray-600 mb-6">เลือกชื่อของคุณเพื่อดูบทบาทและคำแนะนำ</p>
 
-  <select id="nameDropdown">
-    <option value="">-- เลือกชื่อของคุณ --</option>
-  </select>
-  <br>
-  <button id="fetchButton" onclick="fetchRole()">ดูคำแนะนำ</button>
+    <div id="nameSelectContainer" class="space-y-4">
+      <p id="loadingText" class="text-gray-500 italic">กำลังโหลดรายชื่อ รอแว๊บบบ...</p>
+      <select 
+        id="nameDropdown" 
+        class="hidden w-full max-w-md px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+      >
+        <option value="">-- เลือกชื่อของคุณ --</option>
+      </select>
+    </div>
 
-  <div id="result"></div>
+    <button 
+      id="fetchButton" 
+      onclick="fetchRole()" 
+      class="mt-6 w-full max-w-md bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      ดูคำแนะนำ
+    </button>
+
+    <div 
+      id="result" 
+      class="mt-8 bg-white rounded-lg shadow-sm p-6 space-y-4 hidden"
+    ></div>
+  </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyuO0ZRXWDpGiavrTbuQMz7AB0jCoIC1ArfTTC_W1hTiUELi62LE-3E6dVPdT6ePeWQ/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwsj-DY3qxg1aJ99RUCHJhWwxfjTMHI50U6I5KJ4xuqzIKcC9SllsXBYs-jKWXJn1Z5/exec";
 
     window.onload = async () => {
+      const dropdown = document.getElementById("nameDropdown");
+      const loadingText = document.getElementById("loadingText");
+
       try {
         const res = await fetch(`${API_URL}?list=true`);
         const names = await res.json();
-        const dropdown = document.getElementById("nameDropdown");
 
         names.forEach(name => {
           const option = document.createElement("option");
@@ -60,35 +70,46 @@
           option.textContent = name;
           dropdown.appendChild(option);
         });
+
+        // Hide loading text and show dropdown
+        loadingText.classList.add('hidden');
+        dropdown.classList.remove('hidden');
       } catch (e) {
-        alert("โหลดรายชื่อไม่สำเร็จ");
+        loadingText.textContent = "ไม่สามารถโหลดรายชื่อได้ กรุณารีเฟรชหน้าเว็บ";
+        loadingText.classList.remove('text-gray-500');
+        loadingText.classList.add('text-red-500');
       }
     };
 
     async function fetchRole() {
       const button = document.getElementById("fetchButton");
+      const result = document.getElementById("result");
       const name = document.getElementById("nameDropdown").value;
       if (!name) return alert("กรุณาเลือกชื่อ");
 
       try {
         // Show loading state
-        button.classList.add("loading");
+        button.classList.add("btn-loading");
         button.disabled = true;
 
         const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`);
         const text = await res.text();
+        console.log('Raw API Response:', text);
         const data = JSON.parse(text);
+        console.log('Parsed API Response:', data);
         
-        document.getElementById("result").innerHTML = `
-          <h3>${data.name}</h3>
-          <strong>บทบาท: ${data.role}</strong><br><br>
-          <p>${data.instruction}</p>
+        result.classList.remove('hidden');
+        result.innerHTML = `
+          <h3 class="text-xl font-semibold text-gray-800">${data.name}</h3>
+          <div class="font-medium text-gray-700">บทบาท: ${data.role}</div>
+          <p class="text-gray-600 whitespace-pre-line">${data.instruction}</p>
         `;
       } catch {
-        document.getElementById("result").innerHTML = `<p>ไม่พบข้อมูลของคุณ</p>`;
+        result.classList.remove('hidden');
+        result.innerHTML = `<p class="text-red-500">ไม่พบข้อมูลของคุณ</p>`;
       } finally {
         // Remove loading state
-        button.classList.remove("loading");
+        button.classList.remove("btn-loading");
         button.disabled = false;
       }
     }
