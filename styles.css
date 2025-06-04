@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
+
+body {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.terminal-cursor::after {
+  content: "_";
+  animation: blink 1s step-end infinite;
+}
+
+.btn-loading::after {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.6s linear infinite;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.checking-pin {
+  display: block;
+  margin-top: 0.75rem;
+  color: #666;
+  font-style: italic;
+}
+
+.checking-pin::after {
+  content: "...";
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+#loadingText {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0;
+}
+
+#loadingText::after {
+  content: "...";
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ""; }
+  40% { content: "."; }
+  60% { content: ".."; }
+  80%, 100% { content: "..."; }
+}
+
+@media (max-width: 640px) {
+  #loadingText, .checking-pin {
+    font-size: 0.875rem;
+    padding: 0.25rem 0;
+  }
+}
+
+.terminal-window {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.terminal-header {
+  background: #333;
+  padding: 8px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.terminal-close { background: #ff5f56; }
+.terminal-minimize { background: #ffbd2e; }
+.terminal-maximize { background: #27c93f; } 

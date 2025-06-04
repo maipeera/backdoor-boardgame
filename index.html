@@ -5,65 +5,7 @@
   <title>Operation: Backdoor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
-
-    body {
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
-
-    .terminal-cursor::after {
-      content: "_";
-      animation: blink 1s step-end infinite;
-    }
-    
-    .btn-loading::after {
-      content: "";
-      display: inline-block;
-      width: 1em;
-      height: 1em;
-      border: 2px solid #fff;
-      border-radius: 50%;
-      border-top-color: transparent;
-      animation: spin 0.6s linear infinite;
-      margin-left: 0.5rem;
-      vertical-align: middle;
-    }
-
-    .terminal-window {
-      background: #1e1e1e;
-      border: 1px solid #333;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .terminal-header {
-      background: #333;
-      padding: 8px;
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
-      display: flex;
-      gap: 6px;
-    }
-
-    .terminal-button {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-
-    .terminal-close { background: #ff5f56; }
-    .terminal-minimize { background: #ffbd2e; }
-    .terminal-maximize { background: #27c93f; }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-gray-900 p-8 min-h-screen text-green-400">
   <div class="max-w-2xl mx-auto">
@@ -86,7 +28,7 @@
         <div id="nameSelectContainer" class="space-y-4">
           <p id="loadingText" class="text-gray-500 italic flex items-center gap-2">
             <span class="text-yellow-400">&gt;</span>
-            กำลังโหลดรายชื่อ รอแว๊บบบ...
+            เช็คแปปตัวจริงป่าว
           </p>
           <select 
             id="nameDropdown" 
@@ -116,7 +58,7 @@
           <div id="pinSetupContainer" class="hidden space-y-4">
             <div class="flex items-center gap-2 mb-2">
               <span class="text-yellow-400">&gt;</span>
-              <p class="text-gray-200">ตั้งค่ารหัส PIN สำหรับการเข้าใช้งานครั้งแรก</p>
+              <p class="text-gray-200">เข้าครั้งแรกตั้ง PIN 4 ตัวก่อน อย่าลืมขี้เกียจเปิดเช็ค</p>
             </div>
             <input 
               type="password" 
@@ -152,6 +94,31 @@
           $ execute --show-role
         </button>
 
+        <!-- Special Actions Section -->
+        <div id="actionButtons" class="mt-2 space-y-2 hidden">
+          <button 
+            id="teamAction" 
+            onclick="handleSpecialAction('team')" 
+            class="w-full max-w-md bg-blue-600 text-black font-medium py-2 px-6 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+          >
+            $ execute --task-team
+          </button>
+          <button 
+            id="voteAction" 
+            onclick="handleSpecialAction('vote')" 
+            class="w-full max-w-md bg-yellow-600 text-black font-medium py-2 px-6 rounded-lg hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+          >
+            $ vote --leak
+          </button>
+          <button 
+            id="backdoorAction" 
+            onclick="handleSpecialAction('leak')" 
+            class="w-full max-w-md bg-red-600 text-black font-medium py-2 px-6 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+          >
+            $ leak --team-data
+          </button>
+        </div>
+
         <div 
           id="result" 
           class="mt-8 bg-gray-800 rounded-lg border border-gray-700 p-6 space-y-4 hidden"
@@ -160,270 +127,6 @@
     </div>
   </div>
 
-  <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyyjdksfvj-NL-jHSICKMAGzRQNCyGKn9WUnaUQHfQuTazywtMJLThGv9hWBeE3i3fB/exec";
-    let currentMode = 'login'; // 'login' or 'setup'
-
-    window.onload = async () => {
-      const dropdown = document.getElementById("nameDropdown");
-      const loadingText = document.getElementById("loadingText");
-      const pinLoginContainer = document.getElementById("pinLoginContainer");
-      const pinSetupContainer = document.getElementById("pinSetupContainer");
-      const actionButton = document.getElementById("actionButton");
-      const newPin = document.getElementById("newPin");
-      const confirmPin = document.getElementById("confirmPin");
-
-      try {
-        const res = await fetch(`${API_URL}?list=true`);
-        const names = await res.json();
-
-        names.forEach(name => {
-          const option = document.createElement("option");
-          option.value = name;
-          option.textContent = name;
-          dropdown.appendChild(option);
-        });
-
-        // Hide loading text and show dropdown
-        loadingText.classList.add('hidden');
-        dropdown.classList.remove('hidden');
-
-        // Show appropriate container when name is selected
-        dropdown.addEventListener('change', async () => {
-          if (dropdown.value) {
-            // Check if PIN needs setup
-            const checkRes = await fetch(`${API_URL}?check_pin=true&name=${encodeURIComponent(dropdown.value)}`);
-            const checkData = await checkRes.json();
-
-            if (checkData.needs_setup) {
-              currentMode = 'setup';
-              pinLoginContainer.classList.add('hidden');
-              pinSetupContainer.classList.remove('hidden');
-              actionButton.textContent = '$ execute --setup-pin';
-            } else {
-              currentMode = 'login';
-              pinLoginContainer.classList.remove('hidden');
-              pinSetupContainer.classList.add('hidden');
-              actionButton.textContent = '$ execute --show-role';
-            }
-            
-            resetPinFields();
-          } else {
-            pinLoginContainer.classList.add('hidden');
-            pinSetupContainer.classList.add('hidden');
-          }
-          updateButtonState();
-        });
-
-        // Enable/disable button based on input
-        document.getElementById("pinInput").addEventListener('input', (e) => {
-          e.target.value = e.target.value.replace(/[^0-9]/g, '');
-          updateButtonState();
-        });
-
-        newPin.addEventListener('input', (e) => {
-          e.target.value = e.target.value.replace(/[^0-9]/g, '');
-          updateButtonState();
-        });
-
-        confirmPin.addEventListener('input', (e) => {
-          e.target.value = e.target.value.replace(/[^0-9]/g, '');
-          updateButtonState();
-        });
-
-      } catch (e) {
-        loadingText.textContent = "ไม่สามารถโหลดรายชื่อได้ กรุณารีเฟรชหน้าเว็บ";
-        loadingText.classList.remove('text-gray-500');
-        loadingText.classList.add('text-red-500');
-      }
-    };
-
-    function updateButtonState() {
-      const dropdown = document.getElementById("nameDropdown");
-      const actionButton = document.getElementById("actionButton");
-      
-      if (currentMode === 'login') {
-        const pinInput = document.getElementById("pinInput");
-        actionButton.disabled = !dropdown.value || pinInput.value.length !== 4;
-      } else {
-        const newPin = document.getElementById("newPin");
-        const confirmPin = document.getElementById("confirmPin");
-        actionButton.disabled = !dropdown.value || newPin.value.length !== 4 || confirmPin.value.length !== 4;
-      }
-    }
-
-    function resetPinFields() {
-      document.getElementById("pinInput").value = '';
-      document.getElementById("newPin").value = '';
-      document.getElementById("confirmPin").value = '';
-      document.getElementById("pinError").classList.add('hidden');
-      document.getElementById("pinSetupError").classList.add('hidden');
-    }
-
-    async function handleAction() {
-      if (currentMode === 'setup') {
-        await setupPin();
-      } else {
-        await fetchRole();
-      }
-    }
-
-    async function setupPin() {
-      const button = document.getElementById("actionButton");
-      const name = document.getElementById("nameDropdown").value;
-      const newPin = document.getElementById("newPin").value;
-      const confirmPin = document.getElementById("confirmPin").value;
-      const pinSetupError = document.getElementById("pinSetupError");
-      const pinSetupErrorText = document.getElementById("pinSetupErrorText");
-
-      if (newPin !== confirmPin) {
-        pinSetupError.classList.remove('hidden');
-        pinSetupErrorText.textContent = "รหัส PIN ไม่ตรงกัน กรุณาลองใหม่";
-        return;
-      }
-
-      try {
-        button.classList.add("btn-loading");
-        button.disabled = true;
-
-        const res = await fetch(`${API_URL}?setup_pin=true&name=${encodeURIComponent(name)}&pin=${newPin}`);
-        const data = await res.json();
-
-        if (data.success) {
-          // Switch to login mode
-          currentMode = 'login';
-          document.getElementById("pinSetupContainer").classList.add('hidden');
-          document.getElementById("pinLoginContainer").classList.remove('hidden');
-          button.textContent = '$ execute --show-role';
-          resetPinFields();
-        } else {
-          pinSetupError.classList.remove('hidden');
-          pinSetupErrorText.textContent = data.error || "ไม่สามารถตั้งค่ารหัส PIN ได้ กรุณาลองใหม่";
-        }
-      } catch {
-        pinSetupError.classList.remove('hidden');
-        pinSetupErrorText.textContent = "เกิดข้อผิดพลาด กรุณาลองใหม่";
-      } finally {
-        button.classList.remove("btn-loading");
-        updateButtonState();
-      }
-    }
-
-    function renderRoleSpecificData(roleData) {
-      if (!roleData) return '';
-
-      switch (roleData.type) {
-        case 'team_list':
-          return `
-            <div class="mt-6">
-              <h4 class="text-lg font-semibold text-white mb-3">
-                <span class="text-yellow-400">&gt;</span> ข้อมูลสำหรับ: ${roleData.role}
-              </h4>
-              <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                <table class="min-w-full">
-                  <thead>
-                    <tr>
-                      <th class="text-left text-gray-300 pb-2">ชื่อ</th>
-                      <th class="text-left text-gray-300 pb-2">บทบาท</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${roleData.members.map(member => `
-                      <tr class="border-t border-gray-700">
-                        <td class="py-2 text-white">${member.name}</td>
-                        <td class="py-2 text-gray-200">${member.role}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
-        default:
-          return '';
-      }
-    }
-
-    async function fetchRole() {
-      const button = document.getElementById("actionButton");
-      const result = document.getElementById("result");
-      const name = document.getElementById("nameDropdown").value;
-      const pin = document.getElementById("pinInput").value;
-      const pinError = document.getElementById("pinError");
-
-      if (!name) return alert("กรุณาเลือกชื่อ");
-      if (!pin || pin.length !== 4) return alert("กรุณาใส่รหัส PIN 4 หลัก");
-
-      try {
-        // Show loading state
-        button.classList.add("btn-loading");
-        button.disabled = true;
-
-        // First validate PIN
-        const validateRes = await fetch(`${API_URL}?validate=true&name=${encodeURIComponent(name)}&pin=${pin}`);
-        const validateData = await validateRes.json();
-
-        if (!validateData.valid) {
-          pinError.classList.remove('hidden');
-          return;
-        }
-
-        // PIN is valid, fetch role
-        const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`);
-        const text = await res.text();
-        const data = JSON.parse(text);
-        
-        pinError.classList.add('hidden');
-        result.classList.remove('hidden');
-        result.innerHTML = `
-          <div class="space-y-4">
-            <div class="flex items-center gap-2">
-              <span class="text-green-400">&gt;</span>
-              <h3 class="text-xl font-semibold text-white">${data.name}</h3>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-yellow-400">&gt;</span>
-              <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.role}</span></div>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-yellow-400">&gt;</span>
-              <div class="font-medium text-gray-200">ทีม: <span class="text-white">${data.team}</span></div>
-            </div>
-            <div class="flex items-start gap-2">
-              <span class="text-blue-400">&gt;</span>
-              <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.instruction}</p>
-            </div>
-            ${data.teamMembers ? `
-              <div class="mt-6">
-                <h4 class="text-lg font-semibold text-white mb-3">
-                  <span class="text-yellow-400">&gt;</span> สมาชิกในทีม:
-                </h4>
-                <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                  <div class="grid grid-cols-2 gap-2">
-                    ${data.teamMembers.map(member => `
-                      <div class="text-white">${member}</div>
-                    `).join('')}
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-            ${renderRoleSpecificData(data.roleData)}
-          </div>
-        `;
-      } catch {
-        result.classList.remove('hidden');
-        result.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span class="text-red-500">&gt;</span>
-            <p class="text-red-300">ไม่พบข้อมูลของคุณ</p>
-          </div>
-        `;
-      } finally {
-        // Remove loading state
-        button.classList.remove("btn-loading");
-        button.disabled = false;
-      }
-    }
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>

@@ -45,6 +45,13 @@ function doGet(e) {
   const playerSheet = ss.getSheetByName('Player');
   const roleSheet = ss.getSheetByName('Role');
   const pinSheet = ss.getSheetByName('PIN');
+  const configSheet = ss.getSheetByName('Config');
+
+  // If requesting configuration
+  if (e.parameter.get_config === 'true') {
+    const config = getConfiguration(configSheet);
+    return output.setContent(JSON.stringify(config));
+  }
   
   // If just requesting the list of names
   if (e.parameter.list === 'true') {
@@ -250,5 +257,41 @@ function getRoleData(playerSheet, roleSheet, name) {
   }
   
   return response;
+}
+
+function getConfiguration(sheet) {
+  if (!sheet) return { error: 'Configuration sheet not found' };
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const keyIdx = headers.indexOf("Key");
+  const valueIdx = headers.indexOf("Value");
+  const descriptionIdx = headers.indexOf("Description");
+  
+  if (keyIdx === -1 || valueIdx === -1) {
+    return { error: 'Invalid configuration sheet format' };
+  }
+  
+  const config = {};
+  
+  // Skip header row
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const key = row[keyIdx];
+    let value = row[valueIdx];
+    
+    // Convert string boolean values to actual booleans
+    if (value === 'true' || value === 'false') {
+      value = value === 'true';
+    }
+    // Convert numeric strings to numbers
+    else if (!isNaN(value)) {
+      value = Number(value);
+    }
+    
+    config[key] = value;
+  }
+  
+  return config;
 }
 
