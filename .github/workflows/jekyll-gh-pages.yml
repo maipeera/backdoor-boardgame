@@ -25,16 +25,30 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      
+      - name: Process API config template
+        run: |
+          mkdir -p js
+          envsubst < js/api-config.js.template > js/api-config.js
+        env:
+          APPS_SCRIPT_URL: ${{ vars.APPS_SCRIPT_URL }}
+      
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./
           destination: ./_site
+        env:
+          APPS_SCRIPT_URL: ${{ vars.APPS_SCRIPT_URL }}
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
