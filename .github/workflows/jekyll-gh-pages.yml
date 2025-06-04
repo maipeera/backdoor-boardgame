@@ -34,10 +34,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
       
-      - name: Process API config template
+      - name: Process environment config
         run: |
-          mkdir -p js
-          envsubst < js/api-config.js.template > js/api-config.js
+          mkdir -p config
+          cp config/env.template.js config/env.js
         env:
           APPS_SCRIPT_URL: ${{ vars.APPS_SCRIPT_URL }}
       

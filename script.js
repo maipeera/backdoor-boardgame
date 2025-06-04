@@ -1,4 +1,6 @@
-// API_URL is now defined in api-config.js
+// Get API URL from config
+const API_URL = ENV.API_URL;
+
 let currentMode = 'login'; // 'login' or 'setup'
 let currentRole = ''; // Store current user's role
 let appConfig = {}; // Store application configuration

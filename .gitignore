@@ -136,8 +136,8 @@ dist
 .pnp.*
 
 # Development configuration
-js/api-config.js
-!js/api-config.js.template
+config/env.js
+!config/env.template.js
 
 # IDE and Editor files
 .vscode/
