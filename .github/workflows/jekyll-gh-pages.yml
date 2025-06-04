@@ -37,9 +37,8 @@ jobs:
       - name: Process environment config
         run: |
           mkdir -p config
-          cp config/env.template.js config/env.js
-        env:
-          APPS_SCRIPT_URL: ${{ vars.APPS_SCRIPT_URL }}
+          export APPS_SCRIPT_URL="${{ vars.APPS_SCRIPT_URL }}"
+          envsubst < config/env.template.js > config/env.js
       
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
