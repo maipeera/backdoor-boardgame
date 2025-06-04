@@ -7,6 +7,40 @@ let appConfig = {}; // Store application configuration
 let currentUser = '';
 let currentTeam = '';
 
+// Add cache helper functions at the top
+function getCachedData(key) {
+  try {
+    const item = localStorage.getItem(key);
+    if (!item) return null;
+
+    const data = JSON.parse(item);
+    const now = new Date().getTime();
+
+    if (now > data.expiry) {
+      localStorage.removeItem(key);
+      return null;
+    }
+
+    return data.value;
+  } catch (err) {
+    console.error('Error reading from cache:', err);
+    return null;
+  }
+}
+
+function setCachedData(key, value, hoursToExpire = 24) {
+  try {
+    const expiry = new Date().getTime() + (hoursToExpire * 60 * 60 * 1000);
+    const item = {
+      value: value,
+      expiry: expiry
+    };
+    localStorage.setItem(key, JSON.stringify(item));
+  } catch (err) {
+    console.error('Error writing to cache:', err);
+  }
+}
+
 // Cookie handling functions
 function setCookie(name, value, days = 30) {
   const d = new Date();
@@ -80,24 +114,48 @@ window.onload = async () => {
       console.error('Configuration error:', appConfig.error);
     }
 
-    // First fetch and populate the names
-    const res = await fetch(`${API_URL}?list=true`);
-    names = await res.json();
+    // Try to get cached names first
+    const cachedNames = getCachedData('userNames');
+    if (cachedNames) {
+      names = cachedNames;
+      loadingText.style.display = 'none';
+      nameInput.style.display = 'block';
+      
+      // Load saved selection if exists
+      const savedName = getCookie('selectedUser');
+      if (savedName && names.includes(savedName)) {
+        nameInput.value = savedName;
+        selectedName = savedName;
+        handleNameSelection(savedName);
+      }
+    } else {
+      // Fetch fresh names if no cache
+      try {
+        const res = await fetch(`${API_URL}?list=true`);
+        names = await res.json();
+        
+        // Cache the names
+        setCachedData('userNames', names);
+        
+        loadingText.style.display = 'none';
+        nameInput.style.display = 'block';
 
-    // Hide loading text and show input after names are loaded
-    loadingText.style.display = 'none';
-    nameInput.style.display = 'block';
-
-    // Now that names are loaded, try to restore the saved selection
-    const savedName = getCookie('selectedUser');
-    if (savedName && names.includes(savedName)) {
-      nameInput.value = savedName;
-      selectedName = savedName;
-      // Trigger the change event to load user data
-      handleNameSelection(savedName);
+        // Load saved selection if exists
+        const savedName = getCookie('selectedUser');
+        if (savedName && names.includes(savedName)) {
+          nameInput.value = savedName;
+          selectedName = savedName;
+          handleNameSelection(savedName);
+        }
+      } catch (error) {
+        console.error('Error fetching names:', error);
+        loadingText.textContent = "ไม่สามารถโหลดรายชื่อได้ กรุณารีเฟรชหน้าเว็บ";
+        loadingText.classList.remove('text-gray-500');
+        loadingText.classList.add('text-red-500');
+      }
     }
 
-    // Handle focus on input to show all options if empty
+    // Add focus handler for showing all options
     nameInput.addEventListener('focus', () => {
       if (!nameInput.value.trim()) {
         updateAutocompleteDropdown(names);
@@ -112,6 +170,7 @@ window.onload = async () => {
     });
 
   } catch (e) {
+    console.error('Error in initialization:', e);
     loadingText.textContent = "ไม่สามารถโหลดรายชื่อได้ กรุณารีเฟรชหน้าเว็บ";
     loadingText.classList.remove('text-gray-500');
     loadingText.classList.add('text-red-500');
@@ -690,5 +749,79 @@ async function handleSpecialAction(actionType) {
   } finally {
     button.classList.remove('btn-loading');
     button.disabled = false;
+  }
+}
+
+// Add after the cache helper functions
+async function refreshNamesList() {
+  try {
+    // Clear existing cache
+    localStorage.removeItem('userNames');
+    
+    // Fetch fresh data
+    const res = await fetch(`${API_URL}?list=true`);
+    const freshNames = await res.json();
+    
+    // Cache new data
+    setCachedData('userNames', freshNames);
+    
+    return freshNames;
+  } catch (error) {
+    console.error('Error refreshing names list:', error);
+    throw error;
+  }
+}
+
+// Add after the cache helper functions
+async function clearCache() {
+  try {
+    // Create feedback toast
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-gray-800 text-green-400 px-4 py-2 rounded-lg border border-gray-700 shadow-lg z-50 flex items-center gap-2 transition-opacity duration-300';
+    toast.innerHTML = `
+      <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+      <span>ลบแคชอยู่แปปนะ...</span>
+    `;
+    document.body.appendChild(toast);
+
+    // Clear localStorage
+    localStorage.clear();
+    
+    // Show success message
+    toast.innerHTML = `
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+      <span>ลบเสร็จแล้ว reload แว๊บเดียว</span>
+    `;
+    toast.classList.remove('bg-gray-800');
+    toast.classList.add('bg-green-900');
+
+    // Wait a moment to show the success message, then refresh
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+
+  } catch (error) {
+    console.error('Error clearing cache:', error);
+    
+    // Show error message
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-red-900 text-red-400 px-4 py-2 rounded-lg border border-red-700 shadow-lg z-50 flex items-center gap-2';
+    toast.innerHTML = `
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+      <span>Failed to clear cache</span>
+    `;
+    document.body.appendChild(toast);
+
+    // Remove error toast after delay
+    setTimeout(() => {
+      toast.classList.add('opacity-0');
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
   }
 } 

@@ -10,10 +10,22 @@
 <body class="bg-gray-900 p-4 sm:p-6 min-h-screen text-green-400">
   <div class="max-w-3xl mx-auto">
     <div class="terminal-window">
-      <div class="terminal-header">
-        <div class="terminal-button terminal-close"></div>
-        <div class="terminal-button terminal-minimize"></div>
-        <div class="terminal-button terminal-maximize"></div>
+      <div class="terminal-header flex justify-between items-center px-2">
+        <div class="flex items-center gap-2">
+          <div class="terminal-button terminal-close"></div>
+          <div class="terminal-button terminal-minimize"></div>
+          <div class="terminal-button terminal-maximize"></div>
+        </div>
+        <button 
+          onclick="clearCache()" 
+          class="text-xs text-gray-400 hover:text-green-400 transition-colors py-1 px-2 flex items-center gap-1 focus:outline-none"
+          title="Clear cached data"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <span>Clear Cache</span>
+        </button>
       </div>
       <div class="p-3 sm:p-4">
         <div class="flex items-center gap-2 mb-4">
