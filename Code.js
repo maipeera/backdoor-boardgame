@@ -343,49 +343,86 @@ function doPost(e) {
   output.setMimeType(ContentService.MimeType.JSON);
 
   try {
-    // Get form data
+    // Get form data and validate parameters first
+    if (!e || !e.parameter) {
+      throw new Error('No form data received');
+    }
+
     const formData = e.parameter;
-    const { team, name } = formData;
-    const fileBlob = e.parameter.file;
     
-    if (!team || !name || !fileBlob) {
-      throw new Error('Missing required parameters');
-    }
-
-    // Get the appropriate folder
-    const folderId = TEAM_DRIVE_FOLDERS[team.toUpperCase()];
-    if (!folderId) {
-      throw new Error('Invalid team');
-    }
-    const folder = DriveApp.getFolderById(folderId);
-
-    // Create file in Drive
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `${team}_${name}_${timestamp}`;
-    const file = folder.createFile(fileBlob);
-    file.setName(fileName);
-    const fileUrl = file.getUrl();
-
-    // Save to spreadsheet
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheetName = `team-submission-${team.toLowerCase()}`;
-    let sheet = ss.getSheetByName(sheetName);
+    // Log received parameters for debugging
+    Logger.log('Received parameters:');
+    Logger.log('Raw formData:', JSON.stringify(formData));
     
-    // Create sheet if it doesn't exist
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(['Timestamp', 'Uploader', 'URL']);
+    // Extract parameters safely
+    const team = formData.team || '';
+    const name = formData.name || '';
+    const file = formData.file || '';
+    const filename = formData.filename || 'uploaded_file';
+    const mimeType = formData.mimeType || 'image/jpeg';
+
+    // Log extracted parameters
+    Logger.log('Extracted parameters:');
+    Logger.log('team:', team);
+    Logger.log('name:', name);
+    Logger.log('filename:', filename);
+    Logger.log('mimeType:', mimeType);
+    Logger.log('file length:', file.length);
+
+    // Check each parameter and create detailed error message
+    const missingParams = [];
+    if (!team) missingParams.push('team');
+    if (!name) missingParams.push('name');
+    if (!file) missingParams.push('file');
+    
+    if (missingParams.length > 0) {
+      throw new Error(`Missing required parameters: ${missingParams.join(', ')}`);
     }
 
-    // Add submission record
-    sheet.appendRow([new Date(), name, fileUrl]);
+    try {
+      // Convert base64 to blob
+      const fileBlob = Utilities.newBlob(Utilities.base64Decode(file), mimeType, filename);
 
-    return output.setContent(JSON.stringify({
-      success: true,
-      fileUrl: fileUrl
-    }));
+      // Get the appropriate folder
+      const folderId = TEAM_DRIVE_FOLDERS[team.toUpperCase()];
+      if (!folderId) {
+        throw new Error('Invalid team');
+      }
+      const folder = DriveApp.getFolderById(folderId);
+
+      // Create file in Drive
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const finalFileName = `${team}_${name}_${timestamp}`;
+      const driveFile = folder.createFile(fileBlob);
+      driveFile.setName(finalFileName);
+      const fileUrl = driveFile.getUrl();
+
+      // Save to spreadsheet
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheetName = `team-submission-${team.toLowerCase()}`;
+      let sheet = ss.getSheetByName(sheetName);
+      
+      // Create sheet if it doesn't exist
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.appendRow(['Timestamp', 'Uploader', 'URL']);
+      }
+
+      // Add submission record
+      sheet.appendRow([new Date(), name, fileUrl]);
+
+      return output.setContent(JSON.stringify({
+        success: true,
+        fileUrl: fileUrl
+      }));
+
+    } catch (error) {
+      Logger.log('Error processing file:', error.message);
+      throw new Error(`Error processing file: ${error.message}`);
+    }
 
   } catch (error) {
+    Logger.log('Error in doPost:', error.message);
     return output.setContent(JSON.stringify({
       success: false,
       error: error.message

@@ -460,7 +460,8 @@ async function handleSpecialAction(actionType) {
   
   if (actionType === 'team') {
     const teamButton = document.querySelector('button[onclick="handleSpecialAction(\'team\')"]');
-    if (!teamButton) return;
+    const nameDropdown = document.getElementById("nameDropdown");
+    if (!teamButton || !nameDropdown) return;
     
     try {
       teamButton.classList.add('btn-loading');
@@ -483,29 +484,64 @@ async function handleSpecialAction(actionType) {
 
       // Handle file selection
       fileInput.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) {
+        const selectedFile = e.target.files[0];
+        if (!selectedFile) {
           document.body.removeChild(fileInput);
           return;
         }
 
+        // Get the team button and create loading overlay
+        const teamButton = document.querySelector('button[onclick="handleSpecialAction(\'team\')"]');
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50';
+        loadingOverlay.innerHTML = `
+          <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-sm w-full mx-4">
+            <div class="flex items-center gap-3 text-green-400">
+              <div class="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full"></div>
+              <div class="text-sm">
+                <div>กำลังอัพโหลดรูปภาพ...</div>
+                <div class="text-xs text-gray-400 mt-1">รอแปปนะครับ/คะ ขนาดไฟล์ใหญ่อาจจะช้าหน่อย</div>
+              </div>
+            </div>
+          </div>
+        `;
+
         try {
+          // Show loading overlay
+          document.body.appendChild(loadingOverlay);
+          teamButton.disabled = true;
+
+          // Read file as base64
+          const reader = new FileReader();
+          
+          // Create a promise to handle file reading
+          const readFileAsBase64 = new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(selectedFile);
+          });
+
+          // Wait for file to be read
+          const base64Result = await readFileAsBase64;
+          // Get base64 data (remove data:image/xyz;base64, prefix)
+          const base64Data = base64Result.split(',')[1];
+          
           // Create form data
           const formData = new FormData();
-          formData.append('file', file);
           formData.append('team', currentTeam);
-          formData.append('name', currentUser);
+          formData.append('name', nameDropdown.value);
+          formData.append('file', base64Data);
+          formData.append('filename', selectedFile.name);
+          formData.append('mimeType', selectedFile.type);
 
-          // Get upload URL
-          const urlRes = await fetch(`${API_URL}?get_upload_url=true&team=${currentTeam}`);
-          const urlData = await urlRes.json();
+          // Update loading message
+          loadingOverlay.querySelector('.text-sm').innerHTML = `
+            <div>กำลัง Upload File...</div>
+            <div class="text-xs text-gray-400 mt-1">ขโมยรูปไปลง Google Drive ไว้ส่งลิ้งให้นะ 💽</div>
+          `;
 
-          if (urlData.error) {
-            throw new Error(urlData.error);
-          }
-
-          // Upload file
-          const uploadRes = await fetch(urlData.uploadUrl, {
+          // Upload file directly to API endpoint
+          const uploadRes = await fetch(API_URL, {
             method: 'POST',
             body: formData
           });
@@ -513,15 +549,50 @@ async function handleSpecialAction(actionType) {
           const result = await uploadRes.json();
 
           if (result.success) {
-            alert('รูปภาพถูกอัพโหลดเรียบร้อยแล้ว!');
+            // Update loading overlay with success message
+            loadingOverlay.innerHTML = `
+              <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-sm w-full mx-4">
+                <div class="flex items-center gap-3 text-green-400">
+                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                  <div class="text-sm">
+                    <div>อัพโหลดสำเร็จ!</div>
+                    <div class="text-xs text-gray-400 mt-1">เก่งมากครับ เอาอีกเยอะๆได้นะ กดส่งมารัวๆได้เลย 📸📸/div>
+                  </div>
+                </div>
+              </div>
+            `;
+            // Remove success message after 2 seconds
+            setTimeout(() => {
+              document.body.removeChild(loadingOverlay);
+            }, 2000);
           } else {
             throw new Error(result.error || 'Failed to upload image');
           }
         } catch (error) {
           console.error('Upload error:', error);
-          alert('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ: ' + error.message);
+          // Update loading overlay with error message
+          loadingOverlay.innerHTML = `
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-sm w-full mx-4">
+              <div class="flex items-center gap-3 text-red-400">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                <div class="text-sm">
+                  <div>เกิดข้อผิดพลาด มีอะไรพังแหละ ไว้ลองกดใหม่นะ ไม่น่าจะแก้อะไรแล้ว😵</div>
+                  <div class="text-xs text-gray-400 mt-1">${error.message}</div>
+                </div>
+              </div>
+            </div>
+          `;
+          // Remove error message after 3 seconds
+          setTimeout(() => {
+            document.body.removeChild(loadingOverlay);
+          }, 3000);
         } finally {
           document.body.removeChild(fileInput);
+          teamButton.disabled = false;
         }
       };
 
