@@ -3,8 +3,7 @@ baseurl: ""
 url: ""
 
 # Environment variables
-env:
-  APPS_SCRIPT_URL: <%= ENV['APPS_SCRIPT_URL'] %>
+apps_script_url: <%= ENV['APPS_SCRIPT_URL'] %>
 
 # Build settings
 exclude:
