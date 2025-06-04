@@ -1,4 +1,4 @@
 // Environment configuration
 const ENV = {
-  API_URL: '{{ site.env.APPS_SCRIPT_URL }}' || 'development_url'
+  API_URL: '{{ site.env.APPS_SCRIPT_URL }}'
 };

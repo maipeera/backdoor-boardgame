@@ -1,0 +1,27 @@
+title: Operation Backdoor
+baseurl: ""
+url: ""
+
+# Environment variables
+env:
+  APPS_SCRIPT_URL: <%= ENV['APPS_SCRIPT_URL'] %>
+
+# Build settings
+exclude:
+  - .gitignore
+  - README.md
+  - node_modules
+  - package.json
+  - package-lock.json
+
+# File generation
+keep_files:
+  - .git
+  - .gitignore
+
+# Configure template processing
+defaults:
+  - scope:
+      path: "config/env.template.js"
+    values:
+      layout: null 
