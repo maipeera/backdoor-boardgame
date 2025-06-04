@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyxQDBlFmXDjZ9TqjvCupXNCQ5TEp85Elj07ZvEzkOtkqjyxs4tbzCCmBqMoc_ckLFT/exec";
+// API_URL is now defined in api-config.js
 let currentMode = 'login'; // 'login' or 'setup'
 let currentRole = ''; // Store current user's role
 let appConfig = {}; // Store application configuration
