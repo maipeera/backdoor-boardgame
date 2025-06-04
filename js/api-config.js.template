@@ -1,0 +1,2 @@
+// The URL is injected by Jekyll during build
+const API_URL = '{{ site.env.APPS_SCRIPT_URL }}' || 'development_url'; 

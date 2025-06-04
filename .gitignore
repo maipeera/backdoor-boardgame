@@ -137,6 +137,7 @@ dist
 
 # Development configuration
 js/api-config.js
+!js/api-config.js.template
 
 # IDE and Editor files
 .vscode/
@@ -148,3 +149,8 @@ js/api-config.js
 # Build output
 dist/
 build/
+
+# Jekyll build
+_site/
+.jekyll-cache/
+.jekyll-metadata
