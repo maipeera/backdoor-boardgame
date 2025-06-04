@@ -37,12 +37,26 @@
       >
         <option value="">-- เลือกชื่อของคุณ --</option>
       </select>
+
+      <div id="pinContainer" class="hidden">
+        <input 
+          type="password" 
+          id="pinInput" 
+          maxlength="4" 
+          placeholder="กรุณาใส่รหัส PIN 4 หลัก"
+          class="w-full max-w-md px-4 py-2 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+          pattern="[0-9]*"
+          inputmode="numeric"
+        />
+        <p id="pinError" class="text-red-500 text-sm mt-1 hidden">รหัส PIN ไม่ถูกต้อง กรุณาลองใหม่</p>
+      </div>
     </div>
 
     <button 
       id="fetchButton" 
       onclick="fetchRole()" 
       class="mt-6 w-full max-w-md bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled
     >
       ดูคำแนะนำ
     </button>
@@ -54,11 +68,14 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwsj-DY3qxg1aJ99RUCHJhWwxfjTMHI50U6I5KJ4xuqzIKcC9SllsXBYs-jKWXJn1Z5/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwtBxcmXRtIh3NTZUM4XjOmIOGdjteSZZmv7UmnCXHc3Gei8_yN3bLS-wTdZhtptTHt/exec";
 
     window.onload = async () => {
       const dropdown = document.getElementById("nameDropdown");
       const loadingText = document.getElementById("loadingText");
+      const pinContainer = document.getElementById("pinContainer");
+      const pinInput = document.getElementById("pinInput");
+      const fetchButton = document.getElementById("fetchButton");
 
       try {
         const res = await fetch(`${API_URL}?list=true`);
@@ -74,6 +91,26 @@
         // Hide loading text and show dropdown
         loadingText.classList.add('hidden');
         dropdown.classList.remove('hidden');
+
+        // Show PIN input when name is selected
+        dropdown.addEventListener('change', () => {
+          if (dropdown.value) {
+            pinContainer.classList.remove('hidden');
+            pinInput.value = ''; // Clear PIN
+            document.getElementById('pinError').classList.add('hidden');
+          } else {
+            pinContainer.classList.add('hidden');
+          }
+          fetchButton.disabled = !dropdown.value;
+        });
+
+        // Enable button when PIN is entered
+        pinInput.addEventListener('input', (e) => {
+          // Only allow numbers
+          e.target.value = e.target.value.replace(/[^0-9]/g, '');
+          fetchButton.disabled = e.target.value.length !== 4 || !dropdown.value;
+        });
+
       } catch (e) {
         loadingText.textContent = "ไม่สามารถโหลดรายชื่อได้ กรุณารีเฟรชหน้าเว็บ";
         loadingText.classList.remove('text-gray-500');
@@ -85,24 +122,38 @@
       const button = document.getElementById("fetchButton");
       const result = document.getElementById("result");
       const name = document.getElementById("nameDropdown").value;
+      const pin = document.getElementById("pinInput").value;
+      const pinError = document.getElementById("pinError");
+
       if (!name) return alert("กรุณาเลือกชื่อ");
+      if (!pin || pin.length !== 4) return alert("กรุณาใส่รหัส PIN 4 หลัก");
 
       try {
         // Show loading state
         button.classList.add("btn-loading");
         button.disabled = true;
 
+        // First validate PIN
+        const validateRes = await fetch(`${API_URL}?validate=true&name=${encodeURIComponent(name)}&pin=${pin}`);
+        const validateData = await validateRes.json();
+
+        if (!validateData.valid) {
+          pinError.classList.remove('hidden');
+          return;
+        }
+
+        // PIN is valid, fetch role
         const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`);
         const text = await res.text();
-        console.log('Raw API Response:', text);
         const data = JSON.parse(text);
-        console.log('Parsed API Response:', data);
         
+        pinError.classList.add('hidden');
         result.classList.remove('hidden');
         result.innerHTML = `
           <h3 class="text-xl font-semibold text-gray-800">${data.name}</h3>
           <div class="font-medium text-gray-700">บทบาท: ${data.role}</div>
           <p class="text-gray-600 whitespace-pre-line">${data.instruction}</p>
+          ${renderRoleSpecificData(data.roleData)}
         `;
       } catch {
         result.classList.remove('hidden');
@@ -111,6 +162,39 @@
         // Remove loading state
         button.classList.remove("btn-loading");
         button.disabled = false;
+      }
+    }
+
+    function renderRoleSpecificData(roleData) {
+      if (!roleData) return '';
+
+      switch (roleData.type) {
+        case 'team_list':
+          return `
+            <div class="mt-6">
+              <h4 class="text-lg font-semibold text-gray-800 mb-3">รายชื่อสมาชิกในทีม:</h4>
+              <div class="bg-white rounded-lg shadow-sm p-4">
+                <table class="min-w-full">
+                  <thead>
+                    <tr>
+                      <th class="text-left text-gray-600 pb-2">ชื่อ</th>
+                      <th class="text-left text-gray-600 pb-2">บทบาท</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${roleData.members.map(member => `
+                      <tr class="border-t border-gray-100">
+                        <td class="py-2 text-gray-800">${member.name}</td>
+                        <td class="py-2 text-gray-600">${member.role}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        default:
+          return '';
       }
     }
   </script>
