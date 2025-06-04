@@ -23,19 +23,54 @@ function getCookie(name) {
 }
 
 window.onload = async () => {
-  const dropdown = document.getElementById("nameDropdown");
+  const nameInput = document.getElementById("nameInput");
   const loadingText = document.getElementById("loadingText");
   const pinLoginContainer = document.getElementById("pinLoginContainer");
   const pinSetupContainer = document.getElementById("pinSetupContainer");
   const actionButton = document.getElementById("actionButton");
   const newPin = document.getElementById("newPin");
   const confirmPin = document.getElementById("confirmPin");
+  const pinInput = document.getElementById("pinInput");
+  const autocompleteDropdown = document.getElementById("autocompleteDropdown");
+  
+  let names = []; // Store all names
+  let selectedName = ''; // Store currently selected name
+
+  // Add input event listeners for PIN fields
+  pinInput.addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    updateButtonState();
+  });
+
+  newPin.addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    updateButtonState();
+  });
+
+  confirmPin.addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    updateButtonState();
+  });
+
+  // Add input event listener for name input
+  nameInput.addEventListener('input', (e) => {
+    const value = e.target.value.trim();
+    updateButtonState();
+    
+    // Filter names based on input
+    const filteredNames = value 
+      ? names.filter(name => name.toLowerCase().includes(value.toLowerCase()))
+      : names;
+    
+    // Show all names if input is empty, otherwise show filtered results
+    updateAutocompleteDropdown(filteredNames);
+  });
 
   try {
     // Set initial states
     loadingText.textContent = 'กำลังโหลดรายชื่อผู้ใช้งาน รอแป๊ปปป 🚅';
     loadingText.style.display = 'flex';
-    dropdown.style.display = 'none';
+    nameInput.style.display = 'none';
 
     // Load configuration first
     const configRes = await fetch(`${API_URL}?get_config=true`);
@@ -47,100 +82,33 @@ window.onload = async () => {
 
     // First fetch and populate the names
     const res = await fetch(`${API_URL}?list=true`);
-    const names = await res.json();
+    names = await res.json();
 
-    // Clear existing options except the default one
-    while (dropdown.options.length > 1) {
-      dropdown.remove(1);
-    }
-
-    // Add new options
-    names.forEach(name => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      dropdown.appendChild(option);
-    });
-
-    // Hide loading text and show dropdown after names are loaded
+    // Hide loading text and show input after names are loaded
     loadingText.style.display = 'none';
-    dropdown.style.display = 'block';
+    nameInput.style.display = 'block';
 
     // Now that names are loaded, try to restore the saved selection
     const savedName = getCookie('selectedUser');
     if (savedName && names.includes(savedName)) {
-      dropdown.value = savedName;
+      nameInput.value = savedName;
+      selectedName = savedName;
       // Trigger the change event to load user data
-      const event = new Event('change');
-      dropdown.dispatchEvent(event);
+      handleNameSelection(savedName);
     }
 
-    // Show appropriate container when name is selected
-    dropdown.addEventListener('change', async () => {
-      if (dropdown.value) {
-        // Save selection to cookie
-        setCookie('selectedUser', dropdown.value);
-
-        // Hide PIN input while checking
-        pinLoginContainer.classList.add('hidden');
-        pinSetupContainer.classList.add('hidden');
-        
-        // Show checking indicator
-        const checkingSpan = document.createElement('span');
-        checkingSpan.className = 'checking-pin';
-        checkingSpan.textContent = 'เช็คแปปว่ามี PIN ยัง ใจเย็นๆนะของรีบทำ';
-        dropdown.parentElement.appendChild(checkingSpan);
-
-        // Disable dropdown while checking
-        dropdown.disabled = true;
-        
-        try {
-          // Check if PIN needs setup
-          const checkRes = await fetch(`${API_URL}?check_pin=true&name=${encodeURIComponent(dropdown.value)}`);
-          const checkData = await checkRes.json();
-
-          if (checkData.needs_setup) {
-            currentMode = 'setup';
-            pinSetupContainer.classList.remove('hidden');
-            actionButton.textContent = '$ execute --setup-pin';
-          } else {
-            currentMode = 'login';
-            pinLoginContainer.classList.remove('hidden');
-            actionButton.textContent = '$ execute --show-role';
-          }
-          
-          resetPinFields();
-        } catch (error) {
-          console.error('Error checking PIN:', error);
-        } finally {
-          // Remove checking indicator and re-enable dropdown
-          const checkingSpan = dropdown.parentElement.querySelector('.checking-pin');
-          if (checkingSpan) checkingSpan.remove();
-          dropdown.disabled = false;
-        }
-      } else {
-        // Clear cookie if no selection
-        setCookie('selectedUser', '', -1);
-        pinLoginContainer.classList.add('hidden');
-        pinSetupContainer.classList.add('hidden');
+    // Handle focus on input to show all options if empty
+    nameInput.addEventListener('focus', () => {
+      if (!nameInput.value.trim()) {
+        updateAutocompleteDropdown(names);
       }
-      updateButtonState();
     });
 
-    // Enable/disable button based on input
-    document.getElementById("pinInput").addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/[^0-9]/g, '');
-      updateButtonState();
-    });
-
-    newPin.addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/[^0-9]/g, '');
-      updateButtonState();
-    });
-
-    confirmPin.addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/[^0-9]/g, '');
-      updateButtonState();
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!nameInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
+        autocompleteDropdown.classList.add('hidden');
+      }
     });
 
   } catch (e) {
@@ -148,19 +116,103 @@ window.onload = async () => {
     loadingText.classList.remove('text-gray-500');
     loadingText.classList.add('text-red-500');
   }
+
+  function updateAutocompleteDropdown(filteredNames) {
+    if (filteredNames.length === 0) {
+      autocompleteDropdown.classList.add('hidden');
+      return;
+    }
+
+    // Create dropdown items
+    autocompleteDropdown.innerHTML = filteredNames
+      .map(name => `
+        <div 
+          class="px-4 py-2 cursor-pointer hover:bg-gray-700 text-green-400 transition-colors"
+          data-name="${name}"
+        >${name}</div>
+      `)
+      .join('');
+
+    // Show dropdown
+    autocompleteDropdown.classList.remove('hidden');
+
+    // Add click handlers to dropdown items
+    autocompleteDropdown.querySelectorAll('div').forEach(item => {
+      item.addEventListener('click', () => {
+        const name = item.dataset.name;
+        nameInput.value = name;
+        selectedName = name;
+        autocompleteDropdown.classList.add('hidden');
+        handleNameSelection(name);
+      });
+    });
+  }
+
+  async function handleNameSelection(name) {
+    if (name) {
+      // Save selection to cookie
+      setCookie('selectedUser', name);
+
+      // Hide PIN input while checking
+      pinLoginContainer.classList.add('hidden');
+      pinSetupContainer.classList.add('hidden');
+      
+      // Show checking indicator
+      const checkingSpan = document.createElement('span');
+      checkingSpan.className = 'checking-pin';
+      checkingSpan.textContent = 'เช็คแปปว่ามี PIN ยัง ใจเย็นๆนะของรีบทำ';
+      nameInput.parentElement.appendChild(checkingSpan);
+
+      // Disable input while checking
+      nameInput.disabled = true;
+      
+      try {
+        // Check if PIN needs setup
+        const checkRes = await fetch(`${API_URL}?check_pin=true&name=${encodeURIComponent(name)}`);
+        const checkData = await checkRes.json();
+
+        if (checkData.needs_setup) {
+          currentMode = 'setup';
+          pinSetupContainer.classList.remove('hidden');
+          actionButton.textContent = '$ execute --setup-pin';
+        } else {
+          currentMode = 'login';
+          pinLoginContainer.classList.remove('hidden');
+          actionButton.textContent = '$ execute --show-role';
+        }
+        
+        resetPinFields();
+        updateButtonState(); // Make sure to update button state after changing mode
+      } catch (error) {
+        console.error('Error checking PIN:', error);
+      } finally {
+        // Remove checking indicator and re-enable input
+        const checkingSpan = nameInput.parentElement.querySelector('.checking-pin');
+        if (checkingSpan) checkingSpan.remove();
+        nameInput.disabled = false;
+        updateButtonState(); // Update button state again after enabling input
+      }
+    } else {
+      // Clear cookie if no selection
+      setCookie('selectedUser', '', -1);
+      pinLoginContainer.classList.add('hidden');
+      pinSetupContainer.classList.add('hidden');
+      updateButtonState(); // Update button state when clearing selection
+    }
+  }
 };
 
 function updateButtonState() {
-  const dropdown = document.getElementById("nameDropdown");
+  const nameInput = document.getElementById("nameInput");
   const actionButton = document.getElementById("actionButton");
   
   if (currentMode === 'login') {
     const pinInput = document.getElementById("pinInput");
-    actionButton.disabled = !dropdown.value || pinInput.value.length !== 4;
+    actionButton.disabled = !nameInput.value || pinInput.value.length !== 4;
   } else {
     const newPin = document.getElementById("newPin");
     const confirmPin = document.getElementById("confirmPin");
-    actionButton.disabled = !dropdown.value || newPin.value.length !== 4 || confirmPin.value.length !== 4;
+    actionButton.disabled = !nameInput.value || newPin.value.length !== 4 || confirmPin.value.length !== 4;
   }
 }
 
@@ -194,7 +246,7 @@ async function handleAction() {
 
 async function setupPin() {
   const button = document.getElementById("actionButton");
-  const name = document.getElementById("nameDropdown").value;
+  const name = document.getElementById("nameInput").value;
   const newPin = document.getElementById("newPin").value;
   const confirmPin = document.getElementById("confirmPin").value;
   const pinSetupError = document.getElementById("pinSetupError");
@@ -240,7 +292,7 @@ async function fetchRole() {
   const backdoorAction = document.getElementById("backdoorAction");
   const voteAction = document.getElementById("voteAction");
   const teamAction = document.getElementById("teamAction");
-  const name = document.getElementById("nameDropdown").value;
+  const name = document.getElementById("nameInput").value;
   const pin = document.getElementById("pinInput").value;
   const pinError = document.getElementById("pinError");
   const nameSelectContainer = document.getElementById("nameSelectContainer");
@@ -460,8 +512,8 @@ async function handleSpecialAction(actionType) {
   
   if (actionType === 'team') {
     const teamButton = document.querySelector('button[onclick="handleSpecialAction(\'team\')"]');
-    const nameDropdown = document.getElementById("nameDropdown");
-    if (!teamButton || !nameDropdown) return;
+    const nameInput = document.getElementById("nameInput");
+    if (!teamButton || !nameInput) return;
     
     try {
       teamButton.classList.add('btn-loading');
@@ -529,7 +581,7 @@ async function handleSpecialAction(actionType) {
           // Create form data
           const formData = new FormData();
           formData.append('team', currentTeam);
-          formData.append('name', nameDropdown.value);
+          formData.append('name', nameInput.value);
           formData.append('file', base64Data);
           formData.append('filename', selectedFile.name);
           formData.append('mimeType', selectedFile.type);
@@ -558,15 +610,15 @@ async function handleSpecialAction(actionType) {
                   </svg>
                   <div class="text-sm">
                     <div>อัพโหลดสำเร็จ!</div>
-                    <div class="text-xs text-gray-400 mt-1">เก่งมากครับ เอาอีกเยอะๆได้นะ กดส่งมารัวๆได้เลย 📸📸/div>
+                    <div class="text-xs text-gray-400 mt-1">เก่งมากครับ เอาอีกเยอะๆได้นะ กดส่งมารัวๆได้เลย 📸📸</div>
                   </div>
                 </div>
               </div>
             `;
-            // Remove success message after 2 seconds
+            // Remove success message after 3 seconds
             setTimeout(() => {
               document.body.removeChild(loadingOverlay);
-            }, 2000);
+            }, 3000);
           } else {
             throw new Error(result.error || 'Failed to upload image');
           }
