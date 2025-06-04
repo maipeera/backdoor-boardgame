@@ -35,6 +35,16 @@ function testShowRole() {
   Logger.log(result.getContent());
 }
 
+// Add team drive folder IDs
+const TEAM_DRIVE_FOLDERS = {
+  'A': '1evxBZUqb0J1xlVirLq5cbWmwSqBG5iG6',
+  'B': '1TMPQlFpu4Knprj_75o6t_Jho8BHlEkZq',
+  'C': '1JPnus3sgyLkp6To-eSrMNy23t0V8b0s4',
+  'D': '1i9UxxG8mwDv3sQ3QKF7QPe5vSjoc6o5R',
+  'E': '1W_SwUT76_AqvlD6d9e98Nl0YiR7J2rnw',
+  'F': '1FN7YnCEy1tsUwqRiFsEspDkrTYWQhsVu'
+};
+
 function doGet(e) {
   // Set CORS headers
   const output = ContentService.createTextOutput();
@@ -46,6 +56,13 @@ function doGet(e) {
   const roleSheet = ss.getSheetByName('Role');
   const pinSheet = ss.getSheetByName('PIN');
   const configSheet = ss.getSheetByName('Config');
+  const missionSheet = ss.getSheetByName('Team-Mission');
+
+  // If requesting team mission
+  if (e.parameter.get_mission === 'true' && e.parameter.team) {
+    const mission = getTeamMission(missionSheet, e.parameter.team);
+    return output.setContent(JSON.stringify(mission));
+  }
 
   // If requesting configuration
   if (e.parameter.get_config === 'true') {
@@ -293,5 +310,86 @@ function getConfiguration(sheet) {
   }
   
   return config;
+}
+
+// Add new function to get team mission
+function getTeamMission(sheet, team) {
+  if (!sheet) return { error: 'Mission sheet not found' };
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const teamIdx = headers.indexOf("Team");
+  const missionIdx = headers.indexOf("Mission");
+  
+  if (teamIdx === -1 || missionIdx === -1) {
+    return { error: 'Invalid mission sheet format' };
+  }
+  
+  // Find the mission for the team
+  const missionRow = data.find((row, index) => index > 0 && row[teamIdx] === team);
+  
+  if (!missionRow) {
+    return { error: 'No mission found for team' };
+  }
+  
+  return {
+    team: team,
+    mission: missionRow[missionIdx]
+  };
+}
+
+function doPost(e) {
+  const output = ContentService.createTextOutput();
+  output.setMimeType(ContentService.MimeType.JSON);
+
+  try {
+    // Get form data
+    const formData = e.parameter;
+    const { team, name } = formData;
+    const fileBlob = e.parameter.file;
+    
+    if (!team || !name || !fileBlob) {
+      throw new Error('Missing required parameters');
+    }
+
+    // Get the appropriate folder
+    const folderId = TEAM_DRIVE_FOLDERS[team.toUpperCase()];
+    if (!folderId) {
+      throw new Error('Invalid team');
+    }
+    const folder = DriveApp.getFolderById(folderId);
+
+    // Create file in Drive
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${team}_${name}_${timestamp}`;
+    const file = folder.createFile(fileBlob);
+    file.setName(fileName);
+    const fileUrl = file.getUrl();
+
+    // Save to spreadsheet
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetName = `team-submission-${team.toLowerCase()}`;
+    let sheet = ss.getSheetByName(sheetName);
+    
+    // Create sheet if it doesn't exist
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      sheet.appendRow(['Timestamp', 'Uploader', 'URL']);
+    }
+
+    // Add submission record
+    sheet.appendRow([new Date(), name, fileUrl]);
+
+    return output.setContent(JSON.stringify({
+      success: true,
+      fileUrl: fileUrl
+    }));
+
+  } catch (error) {
+    return output.setContent(JSON.stringify({
+      success: false,
+      error: error.message
+    }));
+  }
 }
 

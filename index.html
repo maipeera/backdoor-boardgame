@@ -7,25 +7,25 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-gray-900 p-8 min-h-screen text-green-400">
-  <div class="max-w-2xl mx-auto">
+<body class="bg-gray-900 p-4 sm:p-6 min-h-screen text-green-400">
+  <div class="max-w-3xl mx-auto">
     <div class="terminal-window">
       <div class="terminal-header">
         <div class="terminal-button terminal-close"></div>
         <div class="terminal-button terminal-minimize"></div>
         <div class="terminal-button terminal-maximize"></div>
       </div>
-      <div class="p-6">
-        <div class="flex items-center gap-2 mb-6">
+      <div class="p-3 sm:p-4">
+        <div class="flex items-center gap-2 mb-4">
           <span class="text-green-400">$</span>
-          <h2 class="text-3xl font-bold text-green-400 terminal-cursor">Operation: Backdoor</h2>
+          <h2 class="text-2xl sm:text-3xl font-bold text-green-400 terminal-cursor">Operation: Backdoor</h2>
         </div>
-        <p class="text-gray-400 mb-6 flex items-center gap-2">
+        <p class="text-gray-400 mb-4 flex items-center gap-2">
           <span class="text-green-400">&gt;</span>
           เลือกชื่อของคุณเพื่อดูบทบาทและคำแนะนำ
         </p>
 
-        <div id="nameSelectContainer" class="space-y-4">
+        <div id="nameSelectContainer" class="space-y-3">
           <p id="loadingText" class="text-gray-500 italic flex items-center gap-2">
             <span class="text-yellow-400">&gt;</span>
             เช็คแปปตัวจริงป่าว
@@ -88,7 +88,7 @@
         <button 
           id="actionButton" 
           onclick="handleAction()" 
-          class="mt-6 w-full max-w-md bg-green-600 text-black font-medium py-2 px-6 rounded-lg hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="mt-4 w-full max-w-full sm:max-w-md bg-green-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           disabled
         >
           $ execute --show-role
@@ -99,21 +99,21 @@
           <button 
             id="teamAction" 
             onclick="handleSpecialAction('team')" 
-            class="w-full max-w-md bg-blue-600 text-black font-medium py-2 px-6 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+            class="w-full max-w-full sm:max-w-md bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
           >
             $ execute --task-team
           </button>
           <button 
             id="voteAction" 
             onclick="handleSpecialAction('vote')" 
-            class="w-full max-w-md bg-yellow-600 text-black font-medium py-2 px-6 rounded-lg hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+            class="w-full max-w-full sm:max-w-md bg-yellow-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
           >
             $ vote --leak
           </button>
           <button 
             id="backdoorAction" 
             onclick="handleSpecialAction('leak')" 
-            class="w-full max-w-md bg-red-600 text-black font-medium py-2 px-6 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+            class="w-full max-w-full sm:max-w-md bg-red-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
           >
             $ leak --team-data
           </button>
@@ -121,7 +121,7 @@
 
         <div 
           id="result" 
-          class="mt-8 bg-gray-800 rounded-lg border border-gray-700 p-6 space-y-4 hidden"
+          class="mt-6 bg-gray-800 rounded-lg border border-gray-700 p-4 space-y-3 hidden overflow-auto"
         ></div>
       </div>
     </div>

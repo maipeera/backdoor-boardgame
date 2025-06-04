@@ -4,6 +4,8 @@ const API_URL = ENV.API_URL;
 let currentMode = 'login'; // 'login' or 'setup'
 let currentRole = ''; // Store current user's role
 let appConfig = {}; // Store application configuration
+let currentUser = '';
+let currentTeam = '';
 
 // Cookie handling functions
 function setCookie(name, value, days = 30) {
@@ -242,22 +244,24 @@ async function fetchRole() {
   const pin = document.getElementById("pinInput").value;
   const pinError = document.getElementById("pinError");
   const nameSelectContainer = document.getElementById("nameSelectContainer");
-  const instructionText = document.querySelector('.text-gray-400.mb-6'); // Select the instruction text element
+  const instructionText = document.querySelector('.text-gray-400.mb-4');
 
   if (!name) return alert("กรุณาเลือกชื่อ");
   if (!pin || pin.length !== 4) return alert("กรุณาใส่รหัส PIN 4 หลัก");
 
   try {
     // Show loading state
-    button.classList.add("btn-loading");
-    button.disabled = true;
+    if (button) {
+      button.classList.add("btn-loading");
+      button.disabled = true;
+    }
 
     // First validate PIN
     const validateRes = await fetch(`${API_URL}?validate=true&name=${encodeURIComponent(name)}&pin=${pin}`);
     const validateData = await validateRes.json();
 
     if (!validateData.valid) {
-      pinError.classList.remove('hidden');
+      if (pinError) pinError.classList.remove('hidden');
       return;
     }
 
@@ -266,107 +270,149 @@ async function fetchRole() {
     const text = await res.text();
     const data = JSON.parse(text);
     
-    // Store current role
+    // Store current role and user info
     currentRole = data.role;
+    currentUser = data.name;
+    currentTeam = data.team;
     
     // Hide name selection, PIN input sections, and instruction text
-    nameSelectContainer.style.display = 'none';
-    button.style.display = 'none';
-    instructionText.style.display = 'none';
+    if (nameSelectContainer) nameSelectContainer.classList.add('hidden');
+    if (button) button.classList.add('hidden');
+    if (instructionText) instructionText.classList.add('hidden');
     
-    pinError.classList.add('hidden');
-    result.classList.remove('hidden');
-    result.innerHTML = `
-      <div class="space-y-4">
-        <div class="flex items-center gap-2">
-          <span class="text-green-400">&gt;</span>
-          <h3 class="text-xl font-semibold text-white">${data.name}</h3>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-yellow-400">&gt;</span>
-          <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.role} ${getRoleEmoji(data.role)}</span></div>
-        </div>
-        <div class="flex items-start gap-2">
-          <span class="text-blue-400">&gt;</span>
-          <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.instruction}</p>
-        </div>
+    if (pinError) pinError.classList.add('hidden');
+    if (result) {
+      result.classList.remove('hidden');
 
-        ${data.teamMembers ? `
-          <div class="mt-6">
-            <h4 class="text-lg font-semibold text-white mb-3">
-              <span class="text-yellow-400">&gt;</span> สมาชิกในทีม ${data.team}:
-            </h4>
-            <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-              <div class="grid grid-cols-2 gap-2">
-                ${data.teamMembers.map(member => `
-                  <div class="text-white">${member}</div>
-                `).join('')}
+      // Fetch team mission if user has a team
+      let missionHtml = '';
+      if (data.team && currentRole !== 'AI') {
+        try {
+          const missionRes = await fetch(`${API_URL}?get_mission=true&team=${encodeURIComponent(data.team)}`);
+          const missionData = await missionRes.json();
+          if (!missionData.error) {
+            const isTeamEnabled = Boolean(appConfig.allow_submit_team);
+            missionHtml = `
+              <div class="mb-6">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="text-purple-400">&gt;</span>
+                  <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team}</h3>
+                </div>
+                <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+                  <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
+                  <div class="border-t border-gray-700 pt-4">
+                    <p class="text-gray-200 whitespace-pre-line leading-relaxed">${missionData.mission}</p>
+                  </div>
+                  <button 
+                    onclick="handleSpecialAction('team')" 
+                    class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors ${!isTeamEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
+                    ${!isTeamEnabled ? 'disabled' : ''}
+                  >
+                    <div class="flex flex-col items-center">
+                      <span>$ execute --submit-result --team-${data.team}</span>
+                      ${!isTeamEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
+                    </div>
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error('Error fetching team mission:', error);
+        }
+      }
+
+      result.innerHTML = `
+        <div class="space-y-4">
+          ${missionHtml}
+          <div class="flex items-center gap-2">
+            <span class="text-green-400">&gt;</span>
+            <h3 class="text-xl font-semibold text-white">${data.name}</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-yellow-400">&gt;</span>
+            <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.role} ${getRoleEmoji(data.role)}</span></div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-blue-400">&gt;</span>
+            <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.instruction}</p>
+          </div>
+
+          ${data.teamMembers ? `
+            <div class="mt-6">
+              <h4 class="text-lg font-semibold text-white mb-3">
+                <span class="text-yellow-400">&gt;</span> สมาชิกในทีม ${data.team}:
+              </h4>
+              <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                <div class="grid grid-cols-2 gap-2">
+                  ${data.teamMembers.map(member => `
+                    <div class="text-white">${member}</div>
+                  `).join('')}
+                </div>
               </div>
             </div>
-          </div>
-        ` : ''}
-        ${renderRoleSpecificData(data.roleData)}
-      </div>
-    `;
+          ` : ''}
+          ${renderRoleSpecificData(data.roleData)}
+        </div>
+      `;
+    }
 
     // Show and configure action buttons based on role
-    actionButtons.classList.remove('hidden');
-    
-    // Configure Backdoor action button
-    if (currentRole === 'Backdoor') {
-      backdoorAction.classList.remove('hidden');
-      const isLeakEnabled = appConfig.allow_submit_leak === true;
-      backdoorAction.disabled = !isLeakEnabled;
-      backdoorAction.title = !isLeakEnabled ? 'This action is currently disabled' : '';
-      if (!isLeakEnabled) {
-        backdoorAction.classList.add('opacity-50', 'cursor-not-allowed');
-      } else {
-        backdoorAction.classList.remove('opacity-50', 'cursor-not-allowed');
-      }
-    } else {
-      backdoorAction.classList.add('hidden');
-    }
-
-    // Configure Vote and Team action buttons
-    if (currentRole !== 'AI') {
-      // Team button
-      teamAction.classList.remove('hidden');
-      const isTeamEnabled = appConfig.allow_submit_team === true;
-      teamAction.disabled = !isTeamEnabled;
-      teamAction.title = !isTeamEnabled ? 'Team submissions are currently disabled' : '';
-      teamAction.textContent = `$ execute --task-${data.team}`;
-      if (!isTeamEnabled) {
-        teamAction.classList.add('opacity-50', 'cursor-not-allowed');
-      } else {
-        teamAction.classList.remove('opacity-50', 'cursor-not-allowed');
+    if (actionButtons) {
+      actionButtons.classList.remove('hidden');
+      
+      // Configure Backdoor action button
+      if (currentRole === 'Backdoor' && backdoorAction) {
+        backdoorAction.classList.remove('hidden');
+        const isLeakEnabled = Boolean(appConfig.allow_submit_leak);
+        backdoorAction.disabled = !isLeakEnabled;
+        backdoorAction.title = !isLeakEnabled ? 'This action is currently disabled' : '';
+        if (!isLeakEnabled) {
+          backdoorAction.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+          backdoorAction.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      } else if (backdoorAction) {
+        backdoorAction.classList.add('hidden');
       }
 
-      // Vote button
-      voteAction.classList.remove('hidden');
-      const isVoteEnabled = appConfig.allow_vote === true;
-      voteAction.disabled = !isVoteEnabled;
-      voteAction.title = !isVoteEnabled ? 'Voting is currently disabled' : '';
-      if (!isVoteEnabled) {
-        voteAction.classList.add('opacity-50', 'cursor-not-allowed');
-      } else {
-        voteAction.classList.remove('opacity-50', 'cursor-not-allowed');
+      // Configure Vote button
+      if (currentRole !== 'AI' && voteAction) {
+        voteAction.classList.remove('hidden');
+        const isVoteEnabled = Boolean(appConfig.allow_vote);
+        voteAction.disabled = !isVoteEnabled;
+        voteAction.title = !isVoteEnabled ? 'Voting is currently disabled' : '';
+        
+        voteAction.innerHTML = `
+          <div class="flex flex-col items-center">
+            <span>$ vote --leak</span>
+            ${!isVoteEnabled ? '<span class="text-xs opacity-75 mt-1">เปิดใช้คืน outing วันแรกนะ</span>' : ''}
+          </div>
+        `;
+        
+        if (!isVoteEnabled) {
+          voteAction.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+          voteAction.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      } else if (voteAction) {
+        voteAction.classList.add('hidden');
       }
-    } else {
-      voteAction.classList.add('hidden');
-      teamAction.classList.add('hidden');
-    }
 
-    // Hide action buttons section if no buttons are visible
-    if (currentRole === 'AI' || 
-        (currentRole !== 'Backdoor' && !appConfig.allow_vote && !appConfig.allow_submit_team)) {
-      actionButtons.classList.add('hidden');
+      // Hide action buttons section if no visible buttons
+      if (currentRole === 'AI' || 
+          (currentRole !== 'Backdoor' && !Boolean(appConfig.allow_vote))) {
+        actionButtons.classList.add('hidden');
+      }
     }
   } catch (error) {
     console.error('Error fetching role:', error);
-    pinError.classList.remove('hidden');
+    if (pinError) pinError.classList.remove('hidden');
   } finally {
-    button.classList.remove("btn-loading");
-    updateButtonState();
+    if (button) {
+      button.classList.remove("btn-loading");
+      updateButtonState();
+    }
   }
 }
 
@@ -409,9 +455,92 @@ async function handleSpecialAction(actionType) {
   const buttonId = {
     'leak': 'backdoorAction',
     'vote': 'voteAction',
-    'team': 'teamAction'
+    'team': null
   }[actionType];
   
+  if (actionType === 'team') {
+    const teamButton = document.querySelector('button[onclick="handleSpecialAction(\'team\')"]');
+    if (!teamButton) return;
+    
+    try {
+      teamButton.classList.add('btn-loading');
+      teamButton.disabled = true;
+      
+      if (Boolean(appConfig.allow_submit_team) !== true) {
+        alert('This action is currently disabled by configuration.');
+        return;
+      }
+
+      // Create file input
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+
+      // Trigger file selection
+      fileInput.click();
+
+      // Handle file selection
+      fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) {
+          document.body.removeChild(fileInput);
+          return;
+        }
+
+        try {
+          // Create form data
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('team', currentTeam);
+          formData.append('name', currentUser);
+
+          // Get upload URL
+          const urlRes = await fetch(`${API_URL}?get_upload_url=true&team=${currentTeam}`);
+          const urlData = await urlRes.json();
+
+          if (urlData.error) {
+            throw new Error(urlData.error);
+          }
+
+          // Upload file
+          const uploadRes = await fetch(urlData.uploadUrl, {
+            method: 'POST',
+            body: formData
+          });
+
+          const result = await uploadRes.json();
+
+          if (result.success) {
+            alert('รูปภาพถูกอัพโหลดเรียบร้อยแล้ว!');
+          } else {
+            throw new Error(result.error || 'Failed to upload image');
+          }
+        } catch (error) {
+          console.error('Upload error:', error);
+          alert('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ: ' + error.message);
+        } finally {
+          document.body.removeChild(fileInput);
+        }
+      };
+
+      // Handle cancel
+      fileInput.oncancel = () => {
+        document.body.removeChild(fileInput);
+      };
+      
+    } catch (error) {
+      console.error('Error in team submission:', error);
+      alert('เกิดข้อผิดพลาด: ' + error.message);
+    } finally {
+      teamButton.classList.remove('btn-loading');
+      teamButton.disabled = Boolean(appConfig.allow_submit_team) !== true;
+    }
+    return;
+  }
+  
+  // Handle other actions (leak and vote)
   const button = document.getElementById(buttonId);
   if (!button) return;
   
@@ -422,11 +551,10 @@ async function handleSpecialAction(actionType) {
     // Check if action is allowed in configuration
     const actionKey = {
       'leak': 'allow_submit_leak',
-      'vote': 'allow_vote',
-      'team': 'allow_submit_team'
+      'vote': 'allow_vote'
     }[actionType];
 
-    if (appConfig[actionKey] !== true) {
+    if (Boolean(appConfig[actionKey]) !== true) {
       alert('This action is currently disabled by configuration.');
       return;
     }
