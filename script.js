@@ -291,6 +291,7 @@ function getRoleEmoji(role) {
     'Backdoor Installer': '🦹',
     'Team Member': '👨‍💻',
     'Staff Engineer': '👨‍💻👑',
+    'Legacy code': '👻'  // Added Legacy code emoji
   };
   return roleEmojis[role] || '💻'; // Default emoji for unknown roles
 }
@@ -367,19 +368,15 @@ async function fetchRole() {
       button.disabled = true;
     }
 
-    // First validate PIN
-    const validateRes = await fetch(`${API_URL}?validate=true&name=${encodeURIComponent(name)}&pin=${pin}`);
-    const validateData = await validateRes.json();
+    // Fetch role with PIN validation
+    const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}&pin=${pin}`);
+    const text = await res.text();
+    const data = JSON.parse(text);
 
-    if (!validateData.valid) {
+    if (data.error) {
       if (pinError) pinError.classList.remove('hidden');
       return;
     }
-
-    // PIN is valid, fetch role
-    const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`);
-    const text = await res.text();
-    const data = JSON.parse(text);
     
     // Store current role and user info
     currentRole = data.role;
@@ -394,48 +391,37 @@ async function fetchRole() {
     if (pinError) pinError.classList.add('hidden');
     if (result) {
       result.classList.remove('hidden');
-
-      // Fetch team mission if user has a team
-      let missionHtml = '';
-      if (data.team && currentRole !== 'AI') {
-        try {
-          const missionRes = await fetch(`${API_URL}?get_mission=true&team=${encodeURIComponent(data.team)}`);
-          const missionData = await missionRes.json();
-          if (!missionData.error) {
-            const isTeamEnabled = Boolean(appConfig.allow_submit_team);
-            missionHtml = `
-              <div class="mb-6">
-                <div class="flex items-center gap-2 mb-3">
-                  <span class="text-purple-400">&gt;</span>
-                  <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team}</h3>
-                </div>
-                <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
-                  <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
-                  <div class="border-t border-gray-700 pt-4">
-                    <p class="text-gray-200 whitespace-pre-line leading-relaxed">${missionData.mission}</p>
-                  </div>
-                  <button 
-                    onclick="handleSpecialAction('team')" 
-                    class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors ${!isTeamEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
-                    ${!isTeamEnabled ? 'disabled' : ''}
-                  >
-                    <div class="flex flex-col items-center">
-                      <span>$ execute --submit-result --team-${data.team}</span>
-                      ${!isTeamEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
-                    </div>
-                  </button>
-                </div>
-              </div>
-            `;
-          }
-        } catch (error) {
-          console.error('Error fetching team mission:', error);
-        }
-      }
-
+      
+      // Get team submission status from config
+      const isTeamEnabled = Boolean(appConfig.allow_submit_team);
+      
       result.innerHTML = `
         <div class="space-y-4">
-          ${missionHtml}
+          ${data.teamMission ? `
+            <div class="mb-6">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-purple-400">&gt;</span>
+                <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team}</h3>
+              </div>
+              <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+                <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
+                <div class="border-t border-gray-700 pt-4">
+                  <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.teamMission}</p>
+                </div>
+                <button 
+                  onclick="handleSpecialAction('team')" 
+                  class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors ${!isTeamEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
+                  ${!isTeamEnabled ? 'disabled' : ''}
+                >
+                  <div class="flex flex-col items-center">
+                    <span>$ execute --submit-result --team-${data.team}</span>
+                    ${!isTeamEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
+                  </div>
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
           <div class="flex items-center gap-2">
             <span class="text-green-400">&gt;</span>
             <h3 class="text-xl font-semibold text-white">${data.name}</h3>
@@ -557,6 +543,19 @@ function renderRoleSpecificData(roleData) {
           </div>
         </div>
       `;
+
+    case 'legacy_mission':
+      return `
+        <div class="mt-6">
+          <h4 class="text-lg font-semibold text-white mb-3">
+            <span class="text-yellow-400">&gt;</span> Legacy Code Mission ${getRoleEmoji(roleData.role)}
+          </h4>
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
+          </div>
+        </div>
+      `;
+
     default:
       return '';
   }

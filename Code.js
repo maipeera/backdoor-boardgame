@@ -56,14 +56,7 @@ function doGet(e) {
   const roleSheet = ss.getSheetByName('Role');
   const pinSheet = ss.getSheetByName('PIN');
   const configSheet = ss.getSheetByName('Config');
-  const missionSheet = ss.getSheetByName('Team-Mission');
-
-  // If requesting team mission
-  if (e.parameter.get_mission === 'true' && e.parameter.team) {
-    const mission = getTeamMission(missionSheet, e.parameter.team);
-    return output.setContent(JSON.stringify(mission));
-  }
-
+  
   // If requesting configuration
   if (e.parameter.get_config === 'true') {
     const config = getConfiguration(configSheet);
@@ -117,21 +110,21 @@ function doGet(e) {
     }
   }
 
-  // Validate PIN
-  if (e.parameter.validate === 'true') {
-    const name = e.parameter.name;
-    const pin = e.parameter.pin;
-    const isValid = validatePin(pinSheet, name, pin);
+  // Get role information (now requires PIN)
+  const name = e.parameter.name;
+  const pin = e.parameter.pin;
+
+  if (!name || !pin) {
     return output.setContent(JSON.stringify({
-      valid: isValid
+      error: 'Name and PIN parameters are required'
     }));
   }
 
-  // Get role information
-  const name = e.parameter.name;
-  if (!name) {
+  // Verify PIN first
+  const isValidPin = validatePin(pinSheet, name, pin);
+  if (!isValidPin) {
     return output.setContent(JSON.stringify({
-      error: 'Name parameter is required'
+      error: 'Invalid PIN'
     }));
   }
 
@@ -191,8 +184,11 @@ function validatePin(pinSheet, name, pin) {
 }
 
 function getRoleData(playerSheet, roleSheet, name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const playerData = playerSheet.getDataRange().getValues();
   const roleData = roleSheet.getDataRange().getValues();
+  const missionSheet = ss.getSheetByName('Team-Mission');
+  const missionDataSheet = ss.getSheetByName('Mission');
   
   const playerHeaders = playerData[0];
   const roleHeaders = roleData[0];
@@ -235,13 +231,43 @@ function getRoleData(playerSheet, roleSheet, name) {
     .map(row => row[nameIdx]) // Get only names
     .filter(memberName => memberName !== playerRow[nameIdx]); // Exclude current player
   
+  // Get mission data
+  const teamMissionData = missionSheet.getDataRange().getValues();
+  const missionData = missionDataSheet.getDataRange().getValues();
+  
+  // Get column indexes for Team-Mission sheet
+  const teamMissionHeaders = teamMissionData[0];
+  const teamMissionTeamIdx = teamMissionHeaders.indexOf("Team");
+  const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+  
+  // Get column indexes for Mission sheet
+  const missionHeaders = missionData[0];
+  const idIdx = missionHeaders.indexOf("id");
+  const teamMissionIdx = missionHeaders.indexOf("Team Mission");
+  const legacyMissionIdx = missionHeaders.indexOf("Legacy Code Mission");
+  
+  // Find team's mission
+  const teamMissionRow = teamMissionData.find((row, index) => index > 0 && row[teamMissionTeamIdx] === team);
+  let teamMission = null;
+  let legacyMission = null;
+  
+  if (teamMissionRow) {
+    const missionId = teamMissionRow[missionIdIdx];
+    const missionRow = missionData.find((row, index) => index > 0 && row[idIdx] === missionId);
+    if (missionRow) {
+      teamMission = missionRow[teamMissionIdx];
+      legacyMission = missionRow[legacyMissionIdx];
+    }
+  }
+  
   // Create response object
   const response = {
     name: playerRow[nameIdx],
     role: playerRole,
     team: team,
     instruction: instruction,
-    teamMembers: teamMembers
+    teamMembers: teamMembers,
+    teamMission: teamMission
   };
   
   // Add role-specific data based on role
@@ -258,6 +284,15 @@ function getRoleData(playerSheet, roleSheet, name) {
             name: row[nameIdx],
             role: row[roleIdx]
           }))
+      };
+      break;
+
+    case "Legacy code":
+      // For Legacy code role, include the legacy mission
+      response.roleData = {
+        type: "legacy_mission",
+        role: playerRole,
+        mission: legacyMission
       };
       break;
       
@@ -310,32 +345,6 @@ function getConfiguration(sheet) {
   }
   
   return config;
-}
-
-// Add new function to get team mission
-function getTeamMission(sheet, team) {
-  if (!sheet) return { error: 'Mission sheet not found' };
-  
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const teamIdx = headers.indexOf("Team");
-  const missionIdx = headers.indexOf("Mission");
-  
-  if (teamIdx === -1 || missionIdx === -1) {
-    return { error: 'Invalid mission sheet format' };
-  }
-  
-  // Find the mission for the team
-  const missionRow = data.find((row, index) => index > 0 && row[teamIdx] === team);
-  
-  if (!missionRow) {
-    return { error: 'No mission found for team' };
-  }
-  
-  return {
-    team: team,
-    mission: missionRow[missionIdx]
-  };
 }
 
 function doPost(e) {
