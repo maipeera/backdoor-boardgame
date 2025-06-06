@@ -283,17 +283,25 @@ function resetPinFields() {
   document.getElementById("pinSetupError").classList.add('hidden');
 }
 
-function getRoleEmoji(role) {
-  // Define role-specific emojis
+function getRoleEmoji(role, roleIcon) {
+  // If roleIcon is provided from API response, use it
+  if (roleIcon) return roleIcon;
+  
+  // If we have icons in config, use those
+  if (appConfig.roleIcons && appConfig.roleIcons[role]) {
+    return appConfig.roleIcons[role];
+  }
+  
+  // Fallback emojis if no config or API icon available
   const roleEmojis = {
-    'AI': '🤖',
+    'AI': '🚀',
     'Backdoor': '🔑',
     'Backdoor Installer': '🦹',
-    'Team Member': '👨‍💻',
-    'Staff Engineer': '👨‍💻👑',
-    'Legacy code': '👻'  // Added Legacy code emoji
+    'Team Member': '🧑‍💻',
+    'Staff Engineer': '🤓',
+    'Legacy code': '🐛'
   };
-  return roleEmojis[role] || '💻'; // Default emoji for unknown roles
+  return roleEmojis[role] || '💻'; // Default emoji if role not found
 }
 
 async function handleAction() {
@@ -397,61 +405,110 @@ async function fetchRole() {
       
       result.innerHTML = `
         <div class="space-y-4">
-          ${data.teamMission ? `
-            <div class="mb-6">
-              <div class="flex items-center gap-2 mb-3">
-                <span class="text-purple-400">&gt;</span>
-                <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team}</h3>
-              </div>
-              <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
-                <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
-                <div class="border-t border-gray-700 pt-4">
-                  <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.teamMission}</p>
+          <!-- Content Container -->
+          <div id="contentContainer" class="pb-16"> <!-- Add padding at bottom for nav bar -->
+            <!-- Team Tab Content -->
+            <div id="teamContent" class="space-y-4">
+              ${data.teamMission ? `
+                <div class="mb-6">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-purple-400">&gt;</span>
+                    <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team}</h3>
+                  </div>
+                  <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+                    <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
+                    <div class="border-t border-gray-700 pt-4">
+                      <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.teamMission}</p>
+                    </div>
+                    <button 
+                      onclick="handleSpecialAction('team')" 
+                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors ${!isTeamEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
+                      ${!isTeamEnabled ? 'disabled' : ''}
+                    >
+                      <div class="flex flex-col items-center">
+                        <span>$ execute --submit-result --team-${data.team}</span>
+                        ${!isTeamEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
+                      </div>
+                    </button>
+                  </div>
                 </div>
+
+                ${data.teamMembers ? `
+                  <div class="mb-6">
+                    <div class="flex items-center gap-2 mb-3">
+                      <span class="text-purple-400">&gt;</span>
+                      <h3 class="text-lg font-semibold text-white">สมาชิกในทีม ${data.team}</h3>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                      <div class="grid grid-cols-2 gap-2">
+                        ${data.teamMembers.map(member => `
+                          <div class="text-white">${member}</div>
+                        `).join('')}
+                      </div>
+                    </div>
+                  </div>
+                ` : ''}
+              ` : ''}
+            </div>
+
+            <!-- Role Tab Content -->
+            <div id="roleContent" class="space-y-4 hidden">
+              <div class="flex items-center gap-2">
+                <span class="text-green-400">&gt;</span>
+                <h3 class="text-xl font-semibold text-white">${data.name}</h3>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-yellow-400">&gt;</span>
+                <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.role} ${getRoleEmoji(data.role, data.roleIcon)}</span></div>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-blue-400">&gt;</span>
+                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.instruction}</p>
+              </div>
+              ${renderRoleSpecificData(data.roleData)}
+            </div>
+          </div>
+
+          <!-- Bottom Navigation Bar -->
+          <div class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700">
+            <div class="max-w-3xl mx-auto px-4">
+              <div class="flex justify-around">
                 <button 
-                  onclick="handleSpecialAction('team')" 
-                  class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors ${!isTeamEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
-                  ${!isTeamEnabled ? 'disabled' : ''}
+                  onclick="switchTab('team')" 
+                  class="tab-button active flex-1 py-3 px-4 text-center focus:outline-none group"
+                  id="teamTab"
                 >
                   <div class="flex flex-col items-center">
-                    <span>$ execute --submit-result --team-${data.team}</span>
-                    ${!isTeamEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
+                    <span class="text-xl mb-1">👥</span>
+                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">ทีม ${data.team}</span>
+                  </div>
+                </button>
+                <button 
+                  onclick="switchTab('role')" 
+                  class="tab-button flex-1 py-3 px-4 text-center focus:outline-none group"
+                  id="roleTab"
+                >
+                  <div class="flex flex-col items-center">
+                    <span class="text-xl mb-1">${getRoleEmoji(data.role, data.roleIcon)}</span>
+                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">บทบาท</span>
                   </div>
                 </button>
               </div>
             </div>
-          ` : ''}
-
-          <div class="flex items-center gap-2">
-            <span class="text-green-400">&gt;</span>
-            <h3 class="text-xl font-semibold text-white">${data.name}</h3>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-yellow-400">&gt;</span>
-            <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.role} ${getRoleEmoji(data.role)}</span></div>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="text-blue-400">&gt;</span>
-            <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.instruction}</p>
-          </div>
-
-          ${data.teamMembers ? `
-            <div class="mt-6">
-              <h4 class="text-lg font-semibold text-white mb-3">
-                <span class="text-yellow-400">&gt;</span> สมาชิกในทีม ${data.team}:
-              </h4>
-              <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                <div class="grid grid-cols-2 gap-2">
-                  ${data.teamMembers.map(member => `
-                    <div class="text-white">${member}</div>
-                  `).join('')}
-                </div>
-              </div>
-            </div>
-          ` : ''}
-          ${renderRoleSpecificData(data.roleData)}
         </div>
       `;
+
+      // Add tab switching function
+      window.switchTab = function(tab) {
+        // Update content visibility
+        document.getElementById('teamContent').classList.toggle('hidden', tab !== 'team');
+        document.getElementById('roleContent').classList.toggle('hidden', tab !== 'role');
+        
+        // Update tab button styles
+        document.getElementById('teamTab').classList.toggle('active', tab === 'team');
+        document.getElementById('roleTab').classList.toggle('active', tab === 'role');
+      }
     }
 
     // Show and configure action buttons based on role
@@ -483,7 +540,10 @@ async function fetchRole() {
         voteAction.innerHTML = `
           <div class="flex flex-col items-center">
             <span>$ vote --leak</span>
-            ${!isVoteEnabled ? '<span class="text-xs opacity-75 mt-1">เปิดใช้คืน outing วันแรกนะ</span>' : ''}
+            ${!isVoteEnabled ? 
+              '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>' : 
+              '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>'
+            }
           </div>
         `;
         
@@ -521,7 +581,7 @@ function renderRoleSpecificData(roleData) {
       return `
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
-            <span class="text-yellow-400">&gt;</span> ข้อมูลสำหรับ: ${roleData.role} ${getRoleEmoji(roleData.role)}
+            <span class="text-yellow-400">&gt;</span> ข้อมูลสำหรับ: ${roleData.role} ${getRoleEmoji(roleData.role, roleData.roleIcon)}
           </h4>
           <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
             <table class="min-w-full">
@@ -535,7 +595,7 @@ function renderRoleSpecificData(roleData) {
                 ${roleData.members.map(member => `
                   <tr class="border-t border-gray-700">
                     <td class="py-2 text-white">${member.name}</td>
-                    <td class="py-2 text-gray-200">${member.role} ${getRoleEmoji(member.role)}</td>
+                    <td class="py-2 text-gray-200">${member.role} ${getRoleEmoji(member.role, member.roleIcon)}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -548,7 +608,7 @@ function renderRoleSpecificData(roleData) {
       return `
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
-            <span class="text-yellow-400">&gt;</span> Legacy Code Mission ${getRoleEmoji(roleData.role)}
+            <span class="text-yellow-400">&gt;</span> Legacy Code Mission ${getRoleEmoji(roleData.role, roleData.roleIcon)}
           </h4>
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
             <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>

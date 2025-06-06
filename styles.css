@@ -14,20 +14,36 @@ body {
 
 .terminal-cursor::after {
   content: "_";
-  animation: blink 1s step-end infinite;
+  animation: cursor 1s infinite;
+  opacity: 0;
+}
+
+.btn-loading {
+  position: relative;
+  color: transparent !important;
 }
 
 .btn-loading::after {
   content: "";
-  display: inline-block;
-  width: 1em;
-  height: 1em;
-  border: 2px solid #fff;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: currentColor;
   border-radius: 50%;
-  border-top-color: transparent;
-  animation: spin 0.6s linear infinite;
-  margin-left: 0.5rem;
-  vertical-align: middle;
+  animation: button-loading-spinner 0.6s linear infinite;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes button-loading-spinner {
+  from {
+    transform: translate(-50%, -50%) rotate(0turn);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(1turn);
+  }
 }
 
 .checking-pin {
@@ -69,27 +85,106 @@ body {
 }
 
 .terminal-window {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: #1a1a1a;
+  border-radius: 0.5rem;
+  overflow: visible;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
 }
 
 .terminal-header {
-  background: #333;
-  padding: 8px;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  display: flex;
-  gap: 6px;
+  background-color: #2d2d2d;
+  padding: 0.5rem;
+  border-bottom: 1px solid #404040;
 }
 
 .terminal-button {
   width: 12px;
   height: 12px;
   border-radius: 50%;
+  margin-right: 6px;
 }
 
-.terminal-close { background: #ff5f56; }
-.terminal-minimize { background: #ffbd2e; }
-.terminal-maximize { background: #27c93f; } 
+.terminal-close {
+  background-color: #ff5f56;
+}
+
+.terminal-minimize {
+  background-color: #ffbd2e;
+}
+
+.terminal-maximize {
+  background-color: #27c93f;
+}
+
+/* Add new styles for bottom navigation */
+.tab-button {
+  position: relative;
+  transition: all 0.2s;
+}
+
+.tab-button::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #34D399;
+  transform: scaleX(0);
+  transition: transform 0.2s;
+}
+
+.tab-button.active {
+  color: #34D399;
+}
+
+.tab-button.active::after {
+  transform: scaleX(1);
+}
+
+/* Add smooth transitions for tab content */
+#teamContent,
+#roleContent {
+  transition: opacity 0.2s;
+}
+
+#teamContent.hidden,
+#roleContent.hidden {
+  display: none;
+  opacity: 0;
+}
+
+#teamContent:not(.hidden),
+#roleContent:not(.hidden) {
+  display: block;
+  opacity: 1;
+}
+
+/* Add styles for autocomplete container */
+.autocomplete-container {
+  position: relative;
+}
+
+#autocompleteDropdown {
+  position: absolute;
+  z-index: 50;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 0.5rem;
+  margin-top: 4px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+}
+
+#autocompleteDropdown div {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#autocompleteDropdown div:hover {
+  background-color: #374151;
+} 

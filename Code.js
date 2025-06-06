@@ -200,6 +200,7 @@ function getRoleData(playerSheet, roleSheet, name) {
   
   const roleKeyIdx = roleHeaders.indexOf("Role");
   const instIdx = roleHeaders.indexOf("Instruction");
+  const iconIdx = roleHeaders.indexOf("Icon");
   const specificDataIdx = roleHeaders.indexOf("SpecificData");
   
   // Find player row
@@ -211,10 +212,14 @@ function getRoleData(playerSheet, roleSheet, name) {
   
   // Find instruction and specific data for the role
   let instruction = "No instruction available";
+  let roleIcon = "💻"; // Default icon
   let roleSpecificConfig = null;
   const roleInstructionRow = roleData.find((row, index) => index > 0 && row[roleKeyIdx] === playerRole);
   if (roleInstructionRow) {
     instruction = roleInstructionRow[instIdx];
+    if (iconIdx !== -1 && roleInstructionRow[iconIdx]) {
+      roleIcon = roleInstructionRow[iconIdx];
+    }
     // Try to parse role-specific configuration if available
     if (specificDataIdx !== -1 && roleInstructionRow[specificDataIdx]) {
       try {
@@ -244,7 +249,7 @@ function getRoleData(playerSheet, roleSheet, name) {
   const missionHeaders = missionData[0];
   const idIdx = missionHeaders.indexOf("id");
   const teamMissionIdx = missionHeaders.indexOf("Team Mission");
-  const legacyMissionIdx = missionHeaders.indexOf("Legacy Code Mission");
+  const legacyMissionIdx = missionHeaders.indexOf("Legacy code Mission");
   
   // Find team's mission
   const teamMissionRow = teamMissionData.find((row, index) => index > 0 && row[teamMissionTeamIdx] === team);
@@ -264,6 +269,7 @@ function getRoleData(playerSheet, roleSheet, name) {
   const response = {
     name: playerRow[nameIdx],
     role: playerRole,
+    roleIcon: roleIcon,
     team: team,
     instruction: instruction,
     teamMembers: teamMembers,
@@ -314,6 +320,8 @@ function getRoleData(playerSheet, roleSheet, name) {
 function getConfiguration(sheet) {
   if (!sheet) return { error: 'Configuration sheet not found' };
   
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const roleSheet = ss.getSheetByName('Role');
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const keyIdx = headers.indexOf("Key");
@@ -326,6 +334,7 @@ function getConfiguration(sheet) {
   
   const config = {};
   
+  // Get basic configuration
   // Skip header row
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
@@ -342,6 +351,28 @@ function getConfiguration(sheet) {
     }
     
     config[key] = value;
+  }
+
+  // Add role icons to configuration
+  if (roleSheet) {
+    const roleData = roleSheet.getDataRange().getValues();
+    const roleHeaders = roleData[0];
+    const roleKeyIdx = roleHeaders.indexOf("Role");
+    const iconIdx = roleHeaders.indexOf("Icon");
+
+    if (roleKeyIdx !== -1 && iconIdx !== -1) {
+      const roleIcons = {};
+      // Skip header row
+      for (let i = 1; i < roleData.length; i++) {
+        const row = roleData[i];
+        const role = row[roleKeyIdx];
+        const icon = row[iconIdx];
+        if (role && icon) {
+          roleIcons[role] = icon;
+        }
+      }
+      config.roleIcons = roleIcons;
+    }
   }
   
   return config;
