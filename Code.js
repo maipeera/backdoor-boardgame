@@ -189,6 +189,7 @@ function getRoleData(playerSheet, roleSheet, name) {
   const roleData = roleSheet.getDataRange().getValues();
   const missionSheet = ss.getSheetByName('Team-Mission');
   const missionDataSheet = ss.getSheetByName('Mission');
+  const backdoorMissionSheet = ss.getSheetByName('Backdoor-Mission');
   
   const playerHeaders = playerData[0];
   const roleHeaders = roleData[0];
@@ -239,11 +240,13 @@ function getRoleData(playerSheet, roleSheet, name) {
   // Get mission data
   const teamMissionData = missionSheet.getDataRange().getValues();
   const missionData = missionDataSheet.getDataRange().getValues();
+  const backdoorMissionData = backdoorMissionSheet ? backdoorMissionSheet.getDataRange().getValues() : [];
   
   // Get column indexes for Team-Mission sheet
   const teamMissionHeaders = teamMissionData[0];
   const teamMissionTeamIdx = teamMissionHeaders.indexOf("Team");
   const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+  const backdoorMissionIdIdx = teamMissionHeaders.indexOf("backdoor-mission-id");
   
   // Get column indexes for Mission sheet
   const missionHeaders = missionData[0];
@@ -251,17 +254,39 @@ function getRoleData(playerSheet, roleSheet, name) {
   const teamMissionIdx = missionHeaders.indexOf("Team Mission");
   const legacyMissionIdx = missionHeaders.indexOf("Legacy code Mission");
   
+  // Get column indexes for Backdoor-Mission sheet
+  let backdoorMissionHeaders = [];
+  let backdoorIdIdx = -1;
+  let backdoorMissionContentIdx = -1;
+  if (backdoorMissionData.length > 0) {
+    backdoorMissionHeaders = backdoorMissionData[0];
+    backdoorIdIdx = backdoorMissionHeaders.indexOf("id");
+    backdoorMissionContentIdx = backdoorMissionHeaders.indexOf("Backdoor Mission");
+  }
+  
   // Find team's mission
   const teamMissionRow = teamMissionData.find((row, index) => index > 0 && row[teamMissionTeamIdx] === team);
   let teamMission = null;
   let legacyMission = null;
+  let backdoorMission = null;
   
   if (teamMissionRow) {
     const missionId = teamMissionRow[missionIdIdx];
+    const backdoorMissionId = teamMissionRow[backdoorMissionIdIdx];
+    
+    // Get team/legacy mission
     const missionRow = missionData.find((row, index) => index > 0 && row[idIdx] === missionId);
     if (missionRow) {
       teamMission = missionRow[teamMissionIdx];
       legacyMission = missionRow[legacyMissionIdx];
+    }
+    
+    // Get backdoor mission if applicable
+    if (backdoorMissionId && backdoorMissionData.length > 0) {
+      const backdoorRow = backdoorMissionData.find((row, index) => index > 0 && row[backdoorIdIdx] === backdoorMissionId);
+      if (backdoorRow) {
+        backdoorMission = backdoorRow[backdoorMissionContentIdx];
+      }
     }
   }
   
@@ -300,6 +325,37 @@ function getRoleData(playerSheet, roleSheet, name) {
         role: playerRole,
         mission: legacyMission
       };
+      break;
+      
+    case "Backdoor":
+      // For Backdoor role, include the backdoor mission
+      if (backdoorMission) {
+        response.roleData = {
+          type: "backdoor_mission",
+          role: playerRole,
+          mission: backdoorMission
+        };
+      }
+      break;
+
+    case "Backdoor Installer":
+      // Find the Backdoor member in the team
+      const backdoorMember = playerData.slice(1)
+        .find(row => row[teamIdx] === team && row[roleIdx] === 'Backdoor');
+      
+      // Get Backdoor's role icon
+      const backdoorRoleRow = roleData.find(row => row[roleKeyIdx] === 'Backdoor');
+      const backdoorIcon = backdoorRoleRow && iconIdx !== -1 ? backdoorRoleRow[iconIdx] : '🔑';
+
+      if (backdoorMember && backdoorMission) {
+        response.roleData = {
+          type: "backdoor_installer",
+          role: playerRole,
+          backdoorMember: backdoorMember[nameIdx],
+          backdoorIcon: backdoorIcon,
+          mission: backdoorMission
+        };
+      }
       break;
       
     default:
@@ -390,11 +446,75 @@ function doPost(e) {
 
     const formData = e.parameter;
     
-    // Log received parameters for debugging
-    Logger.log('Received parameters:');
-    Logger.log('Raw formData:', JSON.stringify(formData));
-    
-    // Extract parameters safely
+    // Handle leak submission
+    if (formData.leak_submission === 'true') {
+      const name = formData.name;
+      const team = formData.team;
+      const content = formData.content;
+
+      // Validate required parameters
+      if (!name || !team || !content) {
+        throw new Error('Missing required parameters for leak submission');
+      }
+
+      // Verify user is Backdoor
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const playerSheet = ss.getSheetByName('Player');
+      const playerData = playerSheet.getDataRange().getValues();
+      const headers = playerData[0];
+      const nameIdx = headers.indexOf("Name");
+      const roleIdx = headers.indexOf("Role");
+      const teamIdx = headers.indexOf("Team");
+
+      const playerRow = playerData.find((row, index) => 
+        index > 0 && row[nameIdx].toLowerCase().trim() === name.toLowerCase().trim()
+      );
+
+      if (!playerRow) {
+        throw new Error('User not found');
+      }
+
+      if (playerRow[roleIdx] !== 'Backdoor') {
+        throw new Error('Only Backdoor role can submit leaks');
+      }
+
+      if (playerRow[teamIdx] !== team) {
+        throw new Error('Team mismatch');
+      }
+
+      // Update Team-Mission sheet with leak submission
+      const missionSheet = ss.getSheetByName('Team-Mission');
+      const missionData = missionSheet.getDataRange().getValues();
+      const missionHeaders = missionData[0];
+      const teamColIdx = missionHeaders.indexOf("Team");
+      const submissionColIdx = missionHeaders.indexOf("backdoor-submission");
+
+      if (submissionColIdx === -1) {
+        throw new Error('Backdoor submission column not found');
+      }
+
+      // Find team row and update submission
+      let teamRowIndex = -1;
+      missionData.forEach((row, index) => {
+        if (index > 0 && row[teamColIdx] === team) {
+          teamRowIndex = index;
+        }
+      });
+
+      if (teamRowIndex === -1) {
+        throw new Error('Team not found in mission sheet');
+      }
+
+      // Update the submission (add 1 because sheet is 1-based)
+      missionSheet.getRange(teamRowIndex + 1, submissionColIdx + 1).setValue(content);
+
+      return output.setContent(JSON.stringify({
+        success: true,
+        message: 'Leak submitted successfully'
+      }));
+    }
+
+    // Handle file upload (existing code)
     const team = formData.team || '';
     const name = formData.name || '';
     const file = formData.file || '';
@@ -402,7 +522,6 @@ function doPost(e) {
     const mimeType = formData.mimeType || 'image/jpeg';
 
     // Log extracted parameters
-    Logger.log('Extracted parameters:');
     Logger.log('team:', team);
     Logger.log('name:', name);
     Logger.log('filename:', filename);

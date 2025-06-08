@@ -56,6 +56,38 @@ function getCookie(name) {
   return '';
 }
 
+// Add rules popup functions
+function showRules() {
+  // Create iframe for rules
+  const iframe = document.createElement('iframe');
+  iframe.src = 'rules.html';
+  iframe.className = 'w-full h-full border-0 rounded-lg';
+  
+  // Create popup container
+  const popup = document.createElement('div');
+  popup.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50 p-4 sm:p-6';
+  popup.innerHTML = `
+    <div class="bg-gray-800 rounded-lg shadow-xl w-full h-[90vh] sm:h-[95vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b border-gray-700">
+        <h3 class="text-lg font-medium text-white">กฎการเล่น Operation: Backdoor</h3>
+        <button 
+          onclick="this.closest('.fixed').remove()" 
+          class="text-gray-400 hover:text-white transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-auto p-1">
+        ${iframe.outerHTML}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+}
+
 window.onload = async () => {
   const nameInput = document.getElementById("nameInput");
   const loadingText = document.getElementById("loadingText");
@@ -69,6 +101,19 @@ window.onload = async () => {
   
   let names = []; // Store all names
   let selectedName = ''; // Store currently selected name
+
+  // Add rules button after title
+  const titleElement = document.querySelector('.text-2xl.sm\\:text-3xl');
+  if (titleElement) {
+    const rulesButton = document.createElement('button');
+    rulesButton.className = 'ml-4 px-3 py-1 text-sm bg-gray-800 text-gray-300 hover:text-green-400 rounded-lg border border-gray-700 transition-colors flex items-center gap-2';
+    rulesButton.innerHTML = `
+      <span>กดเพื่อดูคำอธิบายและกฎการเล่น</span>
+      <span class="text-lg">📖</span>
+    `;
+    rulesButton.onclick = showRules;
+    titleElement.parentElement.appendChild(rulesButton);
+  }
 
   // Add input event listeners for PIN fields
   pinInput.addEventListener('input', (e) => {
@@ -422,7 +467,7 @@ async function fetchRole() {
                     </div>
                     <button 
                       onclick="handleSpecialAction('team')" 
-                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors ${!isTeamEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
+                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!isTeamEnabled ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
                       ${!isTeamEnabled ? 'disabled' : ''}
                     >
                       <div class="flex flex-col items-center">
@@ -548,9 +593,11 @@ async function fetchRole() {
         `;
         
         if (!isVoteEnabled) {
-          voteAction.classList.add('opacity-50', 'cursor-not-allowed');
+          voteAction.classList.add('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
+          voteAction.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
         } else {
-          voteAction.classList.remove('opacity-50', 'cursor-not-allowed');
+          voteAction.classList.remove('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
+          voteAction.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
         }
       } else if (voteAction) {
         voteAction.classList.add('hidden');
@@ -577,7 +624,7 @@ function renderRoleSpecificData(roleData) {
   if (!roleData) return '';
 
   switch (roleData.type) {
-    case 'team_list':
+    case "team_list":
       return `
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
@@ -604,7 +651,7 @@ function renderRoleSpecificData(roleData) {
         </div>
       `;
 
-    case 'legacy_mission':
+    case "legacy_mission":
       return `
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
@@ -612,6 +659,53 @@ function renderRoleSpecificData(roleData) {
           </h4>
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
             <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
+          </div>
+        </div>
+      `;
+
+    case "backdoor_mission":
+      const isLeakEnabled = Boolean(appConfig.allow_submit_leak);
+      return `
+        <div class="mt-6">
+          <h4 class="text-lg font-semibold text-white mb-3">
+            <span class="text-red-400">&gt;</span> Backdoor Mission ${getRoleEmoji(roleData.role, roleData.roleIcon)}
+          </h4>
+          <div class="bg-gray-800/50 rounded-lg border border-red-900/50 p-4 space-y-4">
+            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
+            <button 
+              onclick="handleSpecialAction('leak')" 
+              class="w-full bg-red-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!isLeakEnabled ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
+              ${!isLeakEnabled ? 'disabled' : ''}
+            >
+              <div class="flex flex-col items-center">
+                <span>$ leak --team-data</span>
+                ${!isLeakEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดให้ leak ตอนกิจกรรมกลางคืน</span>' : ''}
+              </div>
+            </button>
+          </div>
+        </div>
+      `;
+
+    case "backdoor_installer":
+      return `
+        <div class="mt-6">
+          <h4 class="text-lg font-semibold text-white mb-3">
+            <span class="text-yellow-400">&gt;</span> Backdoor Installer Information ${getRoleEmoji(roleData.role, roleData.roleIcon)}
+          </h4>
+          <div class="bg-gray-800/50 rounded-lg border border-yellow-900/50 p-4 space-y-4">
+            <h5 class="text-yellow-400 font-medium mb-2">Backdoor ในทีมของคุณ</h5>
+              <div class="bg-gray-900/50 rounded-lg p-3 border border-yellow-900/30">
+                <div class="flex items-center gap-2">
+                  <span class="text-red-400">${getRoleEmoji('Backdoor', roleData.backdoorIcon)}</span>
+                  <span class="text-white">${roleData.backdoorMember}</span>
+                </div>
+              </div>
+
+            <!-- Mission Info -->
+            <div class="border-t border-yellow-900/30 pt-4">
+              <h5 class="text-yellow-400 font-medium mb-2">ภารกิจที่ต้องช่วย Backdoor</h5>
+              <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
+            </div>
           </div>
         </div>
       `;
@@ -628,6 +722,49 @@ async function handleSpecialAction(actionType) {
     'team': null
   }[actionType];
   
+  if (actionType === 'leak') {
+    // Create and show the leak submission dialog
+    const dialog = document.createElement('div');
+    dialog.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50';
+    dialog.innerHTML = `
+      <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-lg w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-medium text-white">Submit Leak Information</h3>
+          <button class="text-gray-400 hover:text-white" onclick="this.closest('.fixed').remove()">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Information Gathered</label>
+            <textarea 
+              class="w-full h-40 px-3 py-2 text-white bg-gray-700 rounded-lg border border-gray-600 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+              placeholder="Enter the information you've gathered..."
+            ></textarea>
+          </div>
+          <div class="flex justify-end gap-3">
+            <button 
+              class="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 rounded-lg border border-gray-600 hover:bg-gray-600"
+              onclick="this.closest('.fixed').remove()"
+            >
+              Cancel
+            </button>
+            <button 
+              class="px-4 py-2 text-sm font-medium text-black bg-red-600 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+              onclick="submitLeak(this)"
+            >
+              Leak Information
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    return;
+  }
+
   if (actionType === 'team') {
     const teamButton = document.querySelector('button[onclick="handleSpecialAction(\'team\')"]');
     const nameInput = document.getElementById("nameInput");
@@ -808,6 +945,81 @@ async function handleSpecialAction(actionType) {
   } finally {
     button.classList.remove('btn-loading');
     button.disabled = false;
+  }
+}
+
+async function submitLeak(button) {
+  const dialog = button.closest('.fixed');
+  const textarea = dialog.querySelector('textarea');
+  const content = textarea.value.trim();
+  
+  if (!content) {
+    alert('Please enter the information you want to leak');
+    return;
+  }
+  
+  try {
+    // Show loading state
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Submitting...</span>
+      </div>
+    `;
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('leak_submission', 'true');
+    formData.append('name', currentUser);
+    formData.append('team', currentTeam);
+    formData.append('content', content);
+    
+    // Submit leak
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      body: formData
+    });
+    
+    const result = await res.json();
+    
+    if (result.success) {
+      // Show success message
+      dialog.innerHTML = `
+        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-sm w-full mx-4">
+          <div class="flex items-center gap-3 text-green-400">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <div class="text-sm">
+              <div>Leak submitted successfully!</div>
+              <div class="text-xs text-gray-400 mt-1">Your information has been recorded.</div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Remove dialog after delay
+      setTimeout(() => {
+        dialog.remove();
+      }, 2000);
+    } else {
+      throw new Error(result.error || 'Failed to submit leak');
+    }
+  } catch (error) {
+    console.error('Error submitting leak:', error);
+    
+    // Show error message
+    button.innerHTML = originalText;
+    button.disabled = false;
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'text-red-400 text-sm mt-2';
+    errorDiv.textContent = error.message;
+    button.parentElement.appendChild(errorDiv);
   }
 }
 

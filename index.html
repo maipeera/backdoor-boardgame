@@ -34,7 +34,7 @@
         </div>
         <p class="text-gray-400 mb-4 flex items-center gap-2">
           <span class="text-green-400">&gt;</span>
-          เลือกชื่อของคุณเพื่อดูบทบาทและคำแนะนำ
+          เลือกชื่อตัวเอง อย่าไปเลือกคนอื่นนะ ไม่ได้กันไว้เดี๋ยววุ่นวาย
         </p>
 
         <div id="nameSelectContainer" class="space-y-3">
@@ -47,7 +47,7 @@
               type="text" 
               id="nameInput"
               class="hidden w-full max-w-md px-4 py-2 rounded-lg bg-gray-800 border border-gray-600 text-green-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors"
-              placeholder="พิมพ์ชื่อของคุณ หรือเลือกจากรายการ"
+              placeholder="พิมพ์ชื่อมี autocomplete"
               autocomplete="off"
             />
             <div id="autocompleteDropdown" class="hidden absolute z-50 w-full max-w-md mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -61,7 +61,7 @@
               type="password" 
               id="pinInput" 
               maxlength="4" 
-              placeholder="กรุณาใส่รหัส PIN 4 หลัก"
+              placeholder="ใส่ PIN 4 หลัก ถ้าลืมถามพี่ไม้"
               class="w-full max-w-md px-4 py-2 rounded-lg bg-gray-800 border border-gray-600 text-green-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors placeholder-gray-500"
               pattern="[0-9]*"
               inputmode="numeric"
@@ -120,13 +120,6 @@
             class="w-full max-w-full sm:max-w-md bg-yellow-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
           >
             $ vote --leak
-          </button>
-          <button 
-            id="backdoorAction" 
-            onclick="handleSpecialAction('leak')" 
-            class="w-full max-w-full sm:max-w-md bg-red-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
-          >
-            $ leak --team-data
           </button>
         </div>
 
