@@ -155,6 +155,9 @@ window.onload = async () => {
     const configRes = await fetch(`${API_URL}?get_config=true`);
     appConfig = await configRes.json();
     
+    console.log('Loaded configuration:', appConfig);
+    console.log('allow_vote value:', appConfig.allow_vote, 'type:', typeof appConfig.allow_vote);
+    
     if (appConfig.error) {
       console.error('Configuration error:', appConfig.error);
     }
@@ -575,37 +578,32 @@ async function fetchRole() {
         backdoorAction.classList.add('hidden');
       }
 
-      // Configure Vote button
-      if (currentRole !== 'AI' && voteAction) {
-        voteAction.classList.remove('hidden');
+      // Configure vote button
+      if (voteAction) {
         const isVoteEnabled = Boolean(appConfig.allow_vote);
-        voteAction.disabled = !isVoteEnabled;
-        voteAction.title = !isVoteEnabled ? 'Voting is currently disabled' : '';
+        const hasVoted = localStorage.getItem('hasVoted') === 'true';
+        console.log('Vote button state:', {
+          isVoteEnabled,
+          hasVoted,
+          appConfigAllowVote: appConfig.allow_vote,
+          currentRole
+        });
         
-        voteAction.innerHTML = `
-          <div class="flex flex-col items-center">
-            <span>$ vote --leak</span>
-            ${!isVoteEnabled ? 
-              '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>' : 
-              '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>'
-            }
-          </div>
-        `;
+        voteAction.disabled = hasVoted || !isVoteEnabled;
+        voteAction.title = !isVoteEnabled ? 'Voting is currently disabled' : 
+                          hasVoted ? 'You have already voted' : '';
         
-        if (!isVoteEnabled) {
+        if (!isVoteEnabled || hasVoted) {
           voteAction.classList.add('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
           voteAction.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
         } else {
           voteAction.classList.remove('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
           voteAction.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
         }
-      } else if (voteAction) {
-        voteAction.classList.add('hidden');
       }
 
       // Hide action buttons section if no visible buttons
-      if (currentRole === 'AI' || 
-          (currentRole !== 'Backdoor' && !Boolean(appConfig.allow_vote))) {
+      if (currentRole === 'AI') {
         actionButtons.classList.add('hidden');
       }
     }
@@ -721,47 +719,10 @@ async function handleSpecialAction(actionType) {
     'vote': 'voteAction',
     'team': null
   }[actionType];
-  
-  if (actionType === 'leak') {
-    // Create and show the leak submission dialog
-    const dialog = document.createElement('div');
-    dialog.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50';
-    dialog.innerHTML = `
-      <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-lg w-full mx-4">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-medium text-white">Submit Leak Information</h3>
-          <button class="text-gray-400 hover:text-white" onclick="this.closest('.fixed').remove()">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Information Gathered</label>
-            <textarea 
-              class="w-full h-40 px-3 py-2 text-white bg-gray-700 rounded-lg border border-gray-600 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
-              placeholder="Enter the information you've gathered..."
-            ></textarea>
-          </div>
-          <div class="flex justify-end gap-3">
-            <button 
-              class="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 rounded-lg border border-gray-600 hover:bg-gray-600"
-              onclick="this.closest('.fixed').remove()"
-            >
-              Cancel
-            </button>
-            <button 
-              class="px-4 py-2 text-sm font-medium text-black bg-red-600 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-              onclick="submitLeak(this)"
-            >
-              Leak Information
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(dialog);
+
+  if (actionType === 'vote') {
+    // Use the voting modal from voting.js
+    showVoteModal();
     return;
   }
 

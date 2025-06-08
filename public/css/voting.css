@@ -1,0 +1,145 @@
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.modal-content {
+  position: relative;
+  background-color: #1f2937;
+  margin: 15% auto;
+  padding: 20px;
+  width: 90%;
+  max-width: 500px;
+  border-radius: 8px;
+  color: white;
+}
+
+.modal h2 {
+  color: #10b981;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.player-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background-color: #374151;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.player-option:hover {
+  background-color: #4b5563;
+}
+
+.player-option input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #10b981;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.cancel-btn, .confirm-btn, .ok-btn {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-btn {
+  background-color: #4b5563;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background-color: #374151;
+}
+
+.confirm-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ok-btn {
+  background-color: #10b981;
+  color: white;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.ok-btn:hover {
+  background-color: #059669;
+}
+
+.success-message {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.success-message p:first-child {
+  color: #10b981;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.success-message p:last-child {
+  color: #fbbf24;
+}
+
+.vote-button {
+  position: fixed;
+  bottom: 5rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  z-index: 900;
+}
+
+.vote-button:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.vote-button:disabled,
+.vote-button.disabled {
+  background-color: #4b5563;
+  cursor: not-allowed;
+  opacity: 0.75;
+} 

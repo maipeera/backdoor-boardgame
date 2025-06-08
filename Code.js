@@ -46,90 +46,119 @@ const TEAM_DRIVE_FOLDERS = {
 };
 
 function doGet(e) {
-  // Set CORS headers
   const output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
-  
-  // Get the spreadsheet and relevant sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const playerSheet = ss.getSheetByName('Player');
-  const roleSheet = ss.getSheetByName('Role');
-  const pinSheet = ss.getSheetByName('PIN');
-  const configSheet = ss.getSheetByName('Config');
-  
-  // If requesting configuration
-  if (e.parameter.get_config === 'true') {
-    const config = getConfiguration(configSheet);
-    return output.setContent(JSON.stringify(config));
-  }
-  
-  // If just requesting the list of names
-  if (e.parameter.list === 'true') {
-    const names = getNames(playerSheet);
-    return output.setContent(JSON.stringify(names));
-  }
 
-  // Check if PIN needs setup
-  if (e.parameter.check_pin === 'true') {
-    const name = e.parameter.name;
-    const hasPin = checkIfUserHasPin(pinSheet, name);
-    return output.setContent(JSON.stringify({
-      needs_setup: !hasPin
-    }));
-  }
+  try {
+    // Get parameters
+    const params = e.parameter;
 
-  // Setup PIN
-  if (e.parameter.setup_pin === 'true') {
-    const name = e.parameter.name;
-    const pin = e.parameter.pin;
-    
-    try {
-      // Validate inputs
-      if (!name || !pin) {
-        throw new Error('ข้อมูลไม่ครบถ้วน');
-      }
-      if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-        throw new Error('รหัส PIN ต้องเป็นตัวเลข 4 หลัก');
-      }
-      
-      // Check if PIN already exists
-      if (checkIfUserHasPin(pinSheet, name)) {
-        throw new Error('มีการตั้งค่ารหัส PIN แล้ว');
-      }
+    // Handle get_names request
+    if (params.get_names === 'true') {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const playerSheet = ss.getSheetByName('Player');
+      const playerData = playerSheet.getDataRange().getValues();
+      const headers = playerData[0];
+      const nameIdx = headers.indexOf("Name");
+      const idIdx = headers.indexOf("ID");
 
-      // Save the PIN
-      saveUserPin(pinSheet, name, pin);
-      return output.setContent(JSON.stringify({
-        success: true
+      // Get all player names and IDs (skip header row)
+      const names = playerData.slice(1).map(row => ({
+        id: row[idIdx],
+        name: row[nameIdx]
       }));
-    } catch (error) {
+
       return output.setContent(JSON.stringify({
-        success: false,
-        error: error.message
+        success: true,
+        names: names
       }));
     }
-  }
 
-  // Get role information (now requires PIN)
-  const name = e.parameter.name;
-  const pin = e.parameter.pin;
+    // Get the spreadsheet and relevant sheets
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const playerSheet = ss.getSheetByName('Player');
+    const roleSheet = ss.getSheetByName('Role');
+    const pinSheet = ss.getSheetByName('PIN');
+    const configSheet = ss.getSheetByName('Config');
+    
+    // If requesting configuration
+    if (params.get_config === 'true') {
+      const config = getConfiguration(configSheet);
+      return output.setContent(JSON.stringify(config));
+    }
+    
+    // If just requesting the list of names
+    if (params.list === 'true') {
+      const names = getNames(playerSheet);
+      return output.setContent(JSON.stringify(names));
+    }
 
-  if (!name || !pin) {
+    // Check if PIN needs setup
+    if (params.check_pin === 'true') {
+      const name = params.name;
+      const hasPin = checkIfUserHasPin(pinSheet, name);
+      return output.setContent(JSON.stringify({
+        needs_setup: !hasPin
+      }));
+    }
+
+    // Setup PIN
+    if (params.setup_pin === 'true') {
+      const name = params.name;
+      const pin = params.pin;
+      
+      try {
+        // Validate inputs
+        if (!name || !pin) {
+          throw new Error('ข้อมูลไม่ครบถ้วน');
+        }
+        if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+          throw new Error('รหัส PIN ต้องเป็นตัวเลข 4 หลัก');
+        }
+        
+        // Check if PIN already exists
+        if (checkIfUserHasPin(pinSheet, name)) {
+          throw new Error('มีการตั้งค่ารหัส PIN แล้ว');
+        }
+
+        // Save the PIN
+        saveUserPin(pinSheet, name, pin);
+        return output.setContent(JSON.stringify({
+          success: true
+        }));
+      } catch (error) {
+        return output.setContent(JSON.stringify({
+          success: false,
+          error: error.message
+        }));
+      }
+    }
+
+    // Get role information (now requires PIN)
+    const name = params.name;
+    const pin = params.pin;
+
+    if (!name || !pin) {
+      return output.setContent(JSON.stringify({
+        error: 'Name and PIN parameters are required'
+      }));
+    }
+
+    // Verify PIN first
+    const isValidPin = validatePin(pinSheet, name, pin);
+    if (!isValidPin) {
+      return output.setContent(JSON.stringify({
+        error: 'Invalid PIN'
+      }));
+    }
+
+    const roleData = getRoleData(playerSheet, roleSheet, name);
+    return output.setContent(JSON.stringify(roleData));
+  } catch (error) {
     return output.setContent(JSON.stringify({
-      error: 'Name and PIN parameters are required'
+      error: error.toString()
     }));
   }
-
-  // Verify PIN first
-  const isValidPin = validatePin(pinSheet, name, pin);
-  if (!isValidPin) {
-    return output.setContent(JSON.stringify({
-      error: 'Invalid PIN'
-    }));
-  }
-
-  const roleData = getRoleData(playerSheet, roleSheet, name);
-  return output.setContent(JSON.stringify(roleData));
 }
 
 function getNames(sheet) {
@@ -397,9 +426,18 @@ function getConfiguration(sheet) {
     const key = row[keyIdx];
     let value = row[valueIdx];
     
+    // Log the raw value for debugging
+    if (key === 'allow_vote') {
+      console.log('Raw allow_vote value:', value, 'type:', typeof value);
+    }
+    
     // Convert string boolean values to actual booleans
     if (value === 'true' || value === 'false') {
       value = value === 'true';
+      // Log the converted value
+      if (key === 'allow_vote') {
+        console.log('Converted allow_vote value:', value, 'type:', typeof value);
+      }
     }
     // Convert numeric strings to numbers
     else if (!isNaN(value)) {
@@ -445,6 +483,58 @@ function doPost(e) {
     }
 
     const formData = e.parameter;
+
+    // Handle voting
+    if (formData.vote === 'true') {
+      const voterId = formData.voterId;
+      const votedFor = formData.votedFor;
+
+      // Validate required parameters
+      if (!voterId || !votedFor) {
+        throw new Error('Missing required parameters for voting');
+      }
+
+      // Get the Player sheet
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const playerSheet = ss.getSheetByName('Player');
+      const playerData = playerSheet.getDataRange().getValues();
+      const headers = playerData[0];
+      const idIdx = headers.indexOf("ID");
+      const nameIdx = headers.indexOf("Name");
+      const voteIdx = headers.indexOf("Vote-1");
+
+      if (voteIdx === -1) {
+        throw new Error('Vote-1 column not found');
+      }
+
+      // Find voter's row
+      let voterRowIndex = -1;
+      let votedPlayerName = '';
+      
+      playerData.forEach((row, index) => {
+        if (index > 0) {
+          if (row[idIdx] === voterId) {
+            voterRowIndex = index;
+          }
+          if (row[idIdx] === votedFor) {
+            votedPlayerName = row[nameIdx];
+          }
+        }
+      });
+
+      if (voterRowIndex === -1) {
+        throw new Error('Voter not found');
+      }
+
+      // Update the vote
+      playerSheet.getRange(voterRowIndex + 1, voteIdx + 1).setValue(votedFor);
+
+      return output.setContent(JSON.stringify({
+        success: true,
+        message: 'Vote recorded successfully',
+        votedPlayer: votedPlayerName
+      }));
+    }
     
     // Handle leak submission
     if (formData.leak_submission === 'true') {
