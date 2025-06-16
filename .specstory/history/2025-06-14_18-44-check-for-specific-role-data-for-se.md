@@ -14412,6 +14412,133 @@ I want you to draw a horizontal line graph start from the right.
 
 _**Assistant**_
 
+I'll help you modify the vote results display to show a horizontal bar graph that grows from the right side. I'll update the `updateVoteResultsDisplay` function to include this visualization:
+
+---
+
+```diff
+      .sort(([, a], [, b]) => b - a);
+  
++   // Get the maximum votes for scaling
++   const maxVotes = Math.max(...sortedMembers.map(([, votes]) => votes));
++ 
+    // Create the HTML for vote results
+-   const resultsHTML = sortedMembers.map(([name, votes]) => `
+-     <div class="flex items-center justify-between py-2 px-4 ${votes > 0 ? 'bg-gray-600/30' : ''} rounded">
+-       <span class="text-white">${name}</span>
+-       <span class="text-gray-400">${votes}</span>
++   const resultsHTML = sortedMembers.map(([name, votes], index) => {
++     // Calculate percentage for bar width
++     const percentage = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
++     
++     return `
++       <div class="relative flex items-center mb-2 h-12">
++         <!-- Rank Number -->
++         <div class="absolute left-0 w-8 text-center">
++           <span class="text-gray-400 text-sm">#${index + 1}</span>
+          </div>
+-   `).join('');
++         
++         <!-- Name and Votes -->
++         <div class="absolute left-10 right-0 flex items-center h-full">
++           <!-- Bar Background -->
++           <div class="absolute right-0 h-full bg-gray-700 rounded-lg" style="width: ${percentage}%">
++             <!-- Gradient Overlay -->
++             <div class="absolute inset-0 bg-gradient-to-l from-red-500/20 to-transparent rounded-lg"></div>
++           </div>
++           
++           <!-- Name (left aligned) -->
++           <div class="absolute left-2 z-10">
++             <span class="text-white font-medium">${name}</span>
++           </div>
++           
++           <!-- Vote Count (right aligned) -->
++           <div class="absolute right-2 z-10">
++             <span class="text-gray-300 font-medium">${votes}</span>
++           </div>
++         </div>
++       </div>
++     `;
++   }).join('');
+  
+    listElement.innerHTML = resultsHTML;
+```
+
+---
+
+I've updated the vote results display to show a horizontal bar graph with the following features:
+
+1. Ranking numbers (#1, #2, etc.) on the left
+2. Bars growing from the right side
+3. Bar width scaled relative to the highest vote count
+4. Names aligned to the left of each bar
+5. Vote counts aligned to the right of each bar
+6. Subtle gradient overlay on the bars (red tint)
+7. Better spacing and height for each row
+8. Proper z-indexing to ensure text is always visible
+
+The visualization now:
+- Shows relative vote counts through bar lengths
+- Makes it easy to see ranking at a glance
+- Maintains readability with consistent spacing
+- Has a subtle gradient effect to make it more visually appealing
+- Keeps the text (names and vote counts) clearly visible against any background
+
+The bars will automatically scale based on the highest vote count, so it will look good whether the votes are small numbers or large numbers.
+
+---
+
+_**User**_
+
+the content in voting result somehow stay over the bottom navigation bar. Assume the zindex is wrong? 
+
+---
+
+_**Assistant**_
+
+Yes, the issue is with z-index layering. The bottom navigation bar should be above the content. Let's fix this by:
+
+1. Ensuring the bottom navigation has a higher z-index
+2. Adding proper padding at the bottom of the content to prevent overlap
+
+---
+
+
+
+---
+
+Now let's also add proper padding to the content container to prevent overlap:
+
+---
+
+
+
+---
+
+I've made two changes:
+1. Added `z-50` to the bottom navigation bar to ensure it stays on top of other content
+2. Increased the bottom padding of the content container from `pb-16` to `pb-24` to provide more space and prevent overlap
+
+This should fix the layering issue and ensure the content doesn't overlap with the navigation bar. The navigation bar will now always be visible on top of other content, and there will be enough padding at the bottom to prevent content from being hidden behind it.
+
+---
+
+_**User**_
+
+Add refresh button in the voting tab, which will both refresh the config and also voting result. 
+
+---
+
+_**Assistant**_
+
+I'll add a refresh button to the voting tab header that will refresh both the config and voting results. Let's modify the voting tab section:
+
+---
+
+
+
+---
+
 
 
 ---

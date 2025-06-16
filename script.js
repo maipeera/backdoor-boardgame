@@ -463,7 +463,7 @@ async function fetchRole() {
       result.innerHTML = `
         <div class="space-y-4">
           <!-- Content Container -->
-          <div id="contentContainer" class="pb-16"> <!-- Add padding at bottom for nav bar -->
+          <div id="contentContainer" class="pb-24"> <!-- Increased padding at bottom for nav bar -->
             <!-- Team Tab Content -->
             <div id="teamContent" class="space-y-4">
               ${data.team.mission ? `
@@ -537,9 +537,20 @@ async function fetchRole() {
             <div id="votingContent" class="space-y-4 hidden">
               <div class="max-w-4xl mx-auto">
                 ${currentUser ? `
-                  <div class="flex items-center mb-4">
-                    <h2 class="text-2xl font-bold text-white">🎮 โหวตเกม</h2>
-                    <span id="votingRoundInfo" class="text-sm font-medium ml-4"></span>
+                  <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                      <h2 class="text-2xl font-bold text-white">🎮 โหวตเพื่อ</h2>
+                      <span id="votingRoundInfo" class="text-sm font-medium ml-4"></span>
+                    </div>
+                    <button 
+                      onclick="refreshVotingData()" 
+                      class="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-600"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                      </svg>
+                      <span>Refresh</span>
+                    </button>
                   </div>
 
                   ${parseInt(appConfig.active_voting_round) !== -1 ? `
@@ -619,7 +630,7 @@ async function fetchRole() {
           </div>
 
           <!-- Bottom Navigation Bar -->
-          <div class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700">
+          <div class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-50">
             <div class="max-w-3xl mx-auto px-4">
               <div class="flex justify-around">
                 <button 
@@ -1176,7 +1187,7 @@ async function refreshConfig() {
   }
 }
 
-// Keep only this clean implementation for fetching vote results
+// Function to fetch vote results
 async function fetchVoteResults() {
   try {
     const response = await fetch(`${API_URL}?voteResult=true&team=${currentTeam}`);
@@ -1186,6 +1197,74 @@ async function fetchVoteResults() {
   } catch (error) {
     console.error('Error fetching vote results:', error);
     return null;
+  }
+}
+
+// Function to refresh voting data
+async function refreshVotingData() {
+  try {
+    // Get the refresh button
+    const button = document.querySelector('button[onclick="refreshVotingData()"]');
+    if (button) {
+      // Disable button and show loading state
+      button.disabled = true;
+      const originalContent = button.innerHTML;
+      button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Refreshing...</span>
+      `;
+
+      // Refresh config first
+      const configRes = await fetch(`${API_URL}?get_config=true`);
+      appConfig = await configRes.json();
+      
+      // Then refresh voting results
+      updateVoteResultsDisplay(null); // Show loading state
+      const results = await fetchVoteResults();
+      updateVoteResultsDisplay(results);
+
+      // Show success state briefly
+      button.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span>Updated!</span>
+      `;
+      button.classList.remove('bg-gray-700');
+      button.classList.add('bg-green-600');
+
+      // Reset button state after a moment
+      setTimeout(() => {
+        button.innerHTML = originalContent;
+        button.classList.remove('bg-green-600');
+        button.classList.add('bg-gray-700');
+        button.disabled = false;
+      }, 1500);
+    }
+  } catch (error) {
+    console.error('Error refreshing voting data:', error);
+    
+    // Show error state
+    if (button) {
+      button.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        <span>Error!</span>
+      `;
+      button.classList.remove('bg-gray-700');
+      button.classList.add('bg-red-600');
+
+      // Reset button state after a moment
+      setTimeout(() => {
+        button.innerHTML = originalContent;
+        button.classList.remove('bg-red-600');
+        button.classList.add('bg-gray-700');
+        button.disabled = false;
+      }, 1500);
+    }
   }
 }
 
