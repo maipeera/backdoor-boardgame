@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="public/css/voting.css">
 </head>
-<body class="bg-gray-900 p-4 sm:p-6 min-h-screen text-green-400">
+<body class="bg-gray-900 px-2 py-4 sm:px-4 sm:py-6 min-h-screen text-green-400">
   <div class="max-w-3xl mx-auto">
     <div class="terminal-window">
       <div class="terminal-header flex justify-between items-center px-2">
@@ -112,17 +112,6 @@
         >
           $ execute --show-role
         </button>
-
-        <!-- Special Actions Section -->
-        <div id="actionButtons" class="mt-2 space-y-2 hidden">
-          <button 
-            id="voteAction" 
-            onclick="handleSpecialAction('vote')" 
-            class="w-full max-w-full sm:max-w-md bg-yellow-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
-          >
-            $ vote --leak
-          </button>
-        </div>
 
         <div 
           id="result" 

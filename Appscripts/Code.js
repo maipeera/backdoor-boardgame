@@ -36,6 +36,31 @@ function testShowRole() {
   Logger.log(result.getContent());
 }
 
+function testVoteResult() {
+  const fakeEvent = {
+    parameter: {
+      voteResult: 'true',
+      team: 'A'
+    }
+  };
+  const result = doGet(fakeEvent);
+  Logger.log(result.getContent());
+}
+
+function testVote() {
+  const fakeVote = {
+    parameter: {
+      vote: 'true',
+      voterId: 'Dream',
+      votedFor: 'ดี',
+      round: '2',
+      pin: '1234'
+    }
+  };
+   const result = doPost(fakeVote);
+  Logger.log(result.getContent());
+}
+
 // Add team drive folder IDs
 const TEAM_DRIVE_FOLDERS = {
   'A': '1evxBZUqb0J1xlVirLq5cbWmwSqBG5iG6',
@@ -45,6 +70,31 @@ const TEAM_DRIVE_FOLDERS = {
   'E': '1W_SwUT76_AqvlD6d9e98Nl0YiR7J2rnw',
   'F': '1FN7YnCEy1tsUwqRiFsEspDkrTYWQhsVu'
 };
+
+function getTeamVoteCounts(teamName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const playerSheet = ss.getSheetByName('Player');
+  const data = playerSheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const nameIdx = headers.indexOf("Name");
+  const teamIdx = headers.indexOf("Team");
+  const votedCountIdx = headers.indexOf("voted_count");
+  
+  if (nameIdx === -1 || teamIdx === -1 || votedCountIdx === -1) {
+    throw new Error('Required columns not found');
+  }
+  
+  // Get all members in the team and their vote counts
+  const teamVotes = {};
+  data.slice(1).forEach(row => {
+    if (row[teamIdx] === teamName) {
+      teamVotes[row[nameIdx]] = row[votedCountIdx] || 0;
+    }
+  });
+  
+  return teamVotes;
+}
 
 function doGet(e) {
   const output = ContentService.createTextOutput();
@@ -75,6 +125,19 @@ function doGet(e) {
       }));
     }
 
+    // Handle vote result request
+    if (params.voteResult === 'true') {
+      const team = params.team;
+      if (!team) {
+        return output.setContent(JSON.stringify({
+          error: 'Team parameter is required'
+        }));
+      }
+      
+      const voteResults = getTeamVoteCounts(team);
+      return output.setContent(JSON.stringify(voteResults));
+    }
+
     // Get the spreadsheet and relevant sheets
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const playerSheet = ss.getSheetByName('Player');
@@ -87,7 +150,7 @@ function doGet(e) {
       const config = getConfiguration(configSheet);
       return output.setContent(JSON.stringify(config));
     }
-    
+
     // If just requesting the list of names
     if (params.list === 'true') {
       const names = getNames(playerSheet);
@@ -233,6 +296,9 @@ function getRoleData(e) {
   const nameIdx = headers.indexOf("Name");
   const roleIdx = headers.indexOf("Role");
   const teamIdx = headers.indexOf("Team");
+  const vote1Idx = headers.indexOf("vote-1");
+  const vote2Idx = headers.indexOf("vote-2");
+  const vote3Idx = headers.indexOf("vote-3");
   const roleIdIdx = roleHeaders.indexOf("id");
   const roleNameIdx = roleHeaders.indexOf("Role");
   const roleIconIdx = roleHeaders.indexOf("icon");
@@ -268,9 +334,17 @@ function getRoleData(e) {
   const roleName = roleMap[playerRole];
   const roleInfo = roleInfoMap[playerRole];
   
-  // Get team members (only names)
+  // Get team members with their role IDs
   const teamMembers = playerData.slice(1) // Skip header row
     .filter(row => row[teamIdx] === playerTeam) // Get only team members
+    .map(row => ({
+      name: row[nameIdx],
+      roleId: row[roleIdx]
+    })); // Include both name and role ID
+
+  // Get AI team members (role ID 7)
+  const aiTeamMembers = playerData.slice(1) // Skip header row
+    .filter(row => row[teamIdx] === playerTeam && row[roleIdx] === 7) // Get only AI.U team members (role ID 7)
     .map(row => row[nameIdx]); // Only include names
   
   // Get team mission data
@@ -374,7 +448,13 @@ function getRoleData(e) {
     team: {
       name: playerTeam,
       mission: teamMission,
-      members: teamMembers
+      members: teamMembers.map(member => member.name),
+      ai: aiTeamMembers
+    },
+    vote: {
+      "vote-1": playerData[playerRow][vote1Idx] || "",
+      "vote-2": playerData[playerRow][vote2Idx] || "",
+      "vote-3": playerData[playerRow][vote3Idx] || ""
     }
   };
   
@@ -406,13 +486,18 @@ function getConfiguration(sheet) {
     const key = row[keyIdx];
     let value = row[valueIdx];
     
-    // Log the raw value for debugging
-    if (key === 'allow_vote') {
-      console.log('Raw allow_vote value:', value, 'type:', typeof value);
+    // Handle vote end time values
+    if (key && key.startsWith('vote-') && key.endsWith('-endtime')) {
+      if (value) {
+        // Convert to ISO datetime string (YYYY-MM-DDThh:mm)
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          value = date.toISOString().slice(0, 16); // Format: YYYY-MM-DDThh:mm
+        }
+      }
     }
-    
     // Convert boolean values (handle both string and numeric formats)
-    if (value === 'true' || value === 'false') {
+    else if (value === 'true' || value === 'false') {
       value = value === 'true';
     } else if (value === 1 || value === 0) {
       value = value === 1;
@@ -420,11 +505,6 @@ function getConfiguration(sheet) {
     // Convert other numeric strings to numbers
     else if (!isNaN(value)) {
       value = Number(value);
-    }
-    
-    // Log the converted value
-    if (key === 'allow_vote') {
-      console.log('Converted allow_vote value:', value, 'type:', typeof value);
     }
     
     config[key] = value;
@@ -471,35 +551,48 @@ function doPost(e) {
     if (formData.vote === 'true') {
       const voterId = formData.voterId;
       const votedFor = formData.votedFor;
+      const round = formData.round;
+      const pin = formData.pin;
 
       // Validate required parameters
-      if (!voterId || !votedFor) {
+      if (!voterId || !votedFor || !round || !pin) {
         throw new Error('Missing required parameters for voting');
       }
 
-      // Get the Player sheet
+      // Get the sheets
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       const playerSheet = ss.getSheetByName('Player');
+      const pinSheet = ss.getSheetByName('PIN');
+      
+      // Validate PIN first
+      const isValidPin = validatePin(pinSheet, voterId, pin);
+      if (!isValidPin) {
+        throw new Error('Invalid PIN');
+      }
+
       const playerData = playerSheet.getDataRange().getValues();
       const headers = playerData[0];
       const nameIdx = headers.indexOf("Name");
-      const voteIdx = headers.indexOf("Vote-1");
+      const teamIdx = headers.indexOf("Team");
+      const voteIdx = headers.indexOf(`vote-${round}`);
 
       if (voteIdx === -1) {
-        throw new Error('Vote-1 column not found');
+        throw new Error(`vote-${round} column not found`);
       }
 
-      // Find voter's row
+      // Find voter's row and team
       let voterRowIndex = -1;
-      let votedPlayerName = '';
+      let voterTeam = '';
+      let votedPlayerTeam = '';
       
       playerData.forEach((row, index) => {
         if (index > 0) {
           if (row[nameIdx] === voterId) {
             voterRowIndex = index;
+            voterTeam = row[teamIdx];
           }
           if (row[nameIdx] === votedFor) {
-            votedPlayerName = row[nameIdx];
+            votedPlayerTeam = row[teamIdx];
           }
         }
       });
@@ -508,14 +601,20 @@ function doPost(e) {
         throw new Error('Voter not found');
       }
 
+      if (!votedPlayerTeam) {
+        throw new Error('Voted player not found');
+      }
+
+      // Validate both players are in the same team
+      if (voterTeam !== votedPlayerTeam) {
+        throw new Error('Cannot vote for players from different teams');
+      }
+
       // Update the vote
       playerSheet.getRange(voterRowIndex + 1, voteIdx + 1).setValue(votedFor);
 
-      return output.setContent(JSON.stringify({
-        success: true,
-        message: 'Vote recorded successfully',
-        votedPlayer: votedPlayerName
-      }));
+      // Get vote counts for the team and return
+      return output.setContent(JSON.stringify(getTeamVoteCounts(voterTeam)));
     }
     
     // Handle leak submission
@@ -659,5 +758,17 @@ function doPost(e) {
       error: error.message
     }));
   }
+}
+
+function isValidDateTime(dateTimeStr) {
+  // Check if the string matches ISO 8601 format
+  const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+  if (!isoRegex.test(dateTimeStr)) {
+    return false;
+  }
+
+  // Try to create a Date object
+  const date = new Date(dateTimeStr);
+  return date instanceof Date && !isNaN(date);
 }
 

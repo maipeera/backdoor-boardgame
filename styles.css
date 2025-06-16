@@ -90,6 +90,7 @@ body {
   overflow: visible;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   position: relative;
+  margin: 0;
 }
 
 .terminal-header {
@@ -117,30 +118,38 @@ body {
   background-color: #27c93f;
 }
 
-/* Add new styles for bottom navigation */
-.tab-button {
-  position: relative;
-  transition: all 0.2s;
+/* Update content padding */
+.p-3 {
+  padding: 0.75rem;
 }
 
-.tab-button::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: #34D399;
-  transform: scaleX(0);
-  transition: transform 0.2s;
+@media (min-width: 640px) {
+  .sm\:p-4 {
+    padding: 1rem;
+  }
+}
+
+/* Add styles for the tab buttons */
+.tab-button {
+  transition: all 0.2s ease;
 }
 
 .tab-button.active {
-  color: #34D399;
+  background-color: #2d2d2d;
 }
 
-.tab-button.active::after {
-  transform: scaleX(1);
+/* Add styles for the content sections */
+.space-y-4 > * + * {
+  margin-top: 1rem;
+}
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
+}
+
+/* Add styles for the bottom navigation */
+.fixed.bottom-0 {
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Add smooth transitions for tab content */

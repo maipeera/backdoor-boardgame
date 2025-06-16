@@ -274,6 +274,8 @@ window.onload = async () => {
       // Disable input while checking
       nameInput.disabled = true;
       
+      localStorage.setItem('name', name);
+      
       try {
         // Check if PIN needs setup
         const checkRes = await fetch(`${API_URL}?check_pin=true&name=${encodeURIComponent(name)}`);
@@ -340,17 +342,6 @@ function getRoleEmoji(role, roleIcon) {
   if (appConfig.roleIcons && appConfig.roleIcons[role]) {
     return appConfig.roleIcons[role];
   }
-  
-  // Fallback emojis if no config or API icon available
-  const roleEmojis = {
-    'AI': '🚀',
-    'Backdoor': '🔑',
-    'Backdoor Installer': '🦹',
-    'Team Member': '🧑‍💻',
-    'Staff Engineer': '🤓',
-    'Legacy code': '🐛'
-  };
-  return roleEmojis[role] || '💻'; // Default emoji if role not found
 }
 
 async function handleAction() {
@@ -403,6 +394,7 @@ async function setupPin() {
 }
 
 async function fetchRole() {
+
   const button = document.getElementById("actionButton");
   const result = document.getElementById("result");
   const actionButtons = document.getElementById("actionButtons");
@@ -429,41 +421,44 @@ async function fetchRole() {
     const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}&pin=${pin}`);
     const text = await res.text();
     const data = JSON.parse(text);
-    console.log('Received data from API:', data);
 
     if (data.error) {
-      console.error('API returned error:', data.error);
       if (pinError) pinError.classList.remove('hidden');
       return;
     }
-
+    
     // Store current role and user info
     currentRole = data.roleData.name;
     currentUser = name;
     currentTeam = data.team.name;
-    console.log('Stored user info:', { currentRole, currentUser, currentTeam });
 
-    // Store team members in localStorage
+    // Store team members, AI members, and voting info in localStorage
     if (data.team.members) {
       const teamMembersList = data.team.members.map(name => ({
         id: name,
         name: name
       }));
       localStorage.setItem('currentUserId', currentUser);
-      setCachedData('teamMembers', teamMembersList);
-    }
+      setCachedData('teamMembers', teamMembersList, 24 * 60 * 60 * 1000);
+      
+      if (data.team.ai && Array.isArray(data.team.ai)) {
+        setCachedData('aiMembers', data.team.ai, 24 * 60 * 60 * 1000);
+      }
 
-    // Hide name selection and PIN input sections
+    }
+    
+    // Hide name selection, PIN input sections, and instruction text
     if (nameSelectContainer) nameSelectContainer.classList.add('hidden');
     if (button) button.classList.add('hidden');
     if (instructionText) instructionText.classList.add('hidden');
+    
     if (pinError) pinError.classList.add('hidden');
 
     if (result) {
       result.classList.remove('hidden');
       
       // Get team submission status from config
-      const isTeamEnabled = Boolean(appConfig.allow_submit_team);
+      const allowSubmitTeamMissionFlag = Boolean(appConfig.allow_submit_team);
       
       result.innerHTML = `
         <div class="space-y-4">
@@ -484,12 +479,12 @@ async function fetchRole() {
                     </div>
                     <button 
                       onclick="handleSpecialAction('team')" 
-                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!isTeamEnabled ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
-                      ${!isTeamEnabled ? 'disabled' : ''}
+                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!allowSubmitTeamMissionFlag ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
+                      ${!allowSubmitTeamMissionFlag ? 'disabled' : ''}
                     >
                       <div class="flex flex-col items-center">
                         <span>$ execute --submit-result --team-${data.team.name}</span>
-                        ${!isTeamEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
+                        ${!allowSubmitTeamMissionFlag ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
                       </div>
                     </button>
                   </div>
@@ -516,7 +511,7 @@ async function fetchRole() {
             <!-- Role Tab Content -->
             <div id="roleContent" class="space-y-4 hidden">
               <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
-                <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.roleData.name} ${data.roleData.icon}</span></div>
+                <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.roleData.name} ${getRoleEmoji(data.roleData.name, data.roleData.icon)}</span></div>
                 <div class="mt-2 font-medium text-gray-200">ทีม: <span class="text-white">${data.team.name}</span></div>
               </div>
 
@@ -534,6 +529,92 @@ async function fetchRole() {
                 <h3 class="text-lg font-medium text-blue-400 mb-2">💡 กลยุทธ์แนะนำ</h3>
                 <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.roleData.recommendation}</p>
               </div>
+
+              ${renderRoleSpecificData(data.roleData)}
+            </div>
+
+            <!-- Voting Tab Content -->
+            <div id="votingContent" class="space-y-4 hidden">
+              <div class="max-w-4xl mx-auto">
+                ${currentUser ? `
+                  <div class="flex items-center mb-4">
+                    <h2 class="text-2xl font-bold text-white">🎮 โหวตเกม</h2>
+                    <span id="votingRoundInfo" class="text-sm font-medium ml-4"></span>
+                  </div>
+
+                  ${parseInt(appConfig.active_voting_round) !== -1 ? `
+                    <div class="space-y-4">
+                      ${[1, 2, 3].map(round => `
+                        <div class="bg-gray-700/50 rounded-lg p-4">
+                          <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-semibold text-white">รอบที่ ${round}</h3>
+                            ${parseInt(appConfig.active_voting_round) === round ? 
+                              '<span class="text-sm font-medium text-green-400">กำลังเปิดให้โหวต</span>' : 
+                              parseInt(appConfig.active_voting_round) < round ? 
+                                '<span class="text-sm font-medium text-gray-400">ยังไม่เปิดให้โหวต</span>' :
+                                '<span class="text-sm font-medium text-gray-400">ปิดการโหวตแล้ว</span>'
+                            }
+                          </div>
+                          <div class="flex gap-2">
+                            <select 
+                              id="vote-${round}"
+                              class="flex-1 bg-gray-800 text-white rounded-lg p-2 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              ${parseInt(appConfig.active_voting_round) !== round ? 'disabled' : ''}
+                            >
+                              <option value="" ${!data.vote[`vote-${round}`] ? 'selected' : ''}>-- เลือกผู้เล่น --</option>
+                              ${data.team.members
+                                .filter(member => member !== currentUser) // Exclude current user
+                                .map(member => `
+                                  <option 
+                                    value="${member}" 
+                                    ${data.vote[`vote-${round}`] === member ? 'selected' : ''}
+                                  >
+                                    ${member}
+                                  </option>
+                                `).join('')}
+                            </select>
+                            <button 
+                              onclick="submitVote(${round})" 
+                              class="bg-blue-600 text-white font-medium px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+                              ${parseInt(appConfig.active_voting_round) !== round ? 'disabled' : ''}
+                            >
+                              บันทึก
+                            </button>
+                          </div>
+                        </div>
+                      `).join('')}
+                    </div>
+
+                    <!-- Vote Results Section -->
+                    <div class="mt-8">
+                      <h3 class="text-xl font-semibold text-white mb-4">Ranking โหวตกำจัด Backdoor 🗡️</h3>
+                      <div id="voteResultsLoading" class="text-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+                        <p class="text-gray-400 mt-2">กำลังโหลดผลโหวต...</p>
+                      </div>
+                      <div id="voteResultsContent" class="hidden">
+                        <div class="bg-gray-700/50 rounded-lg p-4">
+                          <div class="space-y-2" id="voteResultsList">
+                            <!-- Vote results will be populated here -->
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ` : `
+                    <!-- Placeholder View -->
+                    <div class="text-center py-12">
+                      <div class="text-gray-700 mb-4 text-6xl">🍺🌼🌾🍶</div>
+                      <p class="text-gray-500">การโหวตจะเปิดในวัน outing\nถ้าวันนี้ outing แล้วยังไม่เปิด\nดื่มน้ำเก๊กฮวยเย็นๆรอก่อนนะ...</p>
+                    </div>
+                  `}
+                ` : `
+                  <!-- Placeholder View -->
+                  <div class="text-center py-12">
+                    <div class="text-gray-400 mb-4">🔒 กรุณาเข้าสู่ระบบ</div>
+                    <p class="text-gray-500">กรุณาเข้าสู่ระบบเพื่อโหวตเกม</p>
+                  </div>
+                `}
+              </div>
             </div>
           </div>
 
@@ -548,7 +629,7 @@ async function fetchRole() {
                 >
                   <div class="flex flex-col items-center">
                     <span class="text-xl mb-1">👥</span>
-                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">ทีม ${data.team.name}</span>
+                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">ทีม ${data.team}</span>
                   </div>
                 </button>
                 <button 
@@ -561,97 +642,45 @@ async function fetchRole() {
                     <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">บทบาท</span>
                   </div>
                 </button>
+                <button 
+                  onclick="switchTab('voting')" 
+                  class="tab-button flex-1 py-3 px-4 text-center focus:outline-none group"
+                  id="votingTab"
+                >
+                  <div class="flex flex-col items-center">
+                    <span class="text-xl mb-1">🎮</span>
+                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">โหวตเกม</span>
+                  </div>
+                </button>
               </div>
             </div>
           </div>
         </div>
       `;
 
-      // Add tab switching function
-      window.switchTab = function(tab) {
+      // Update window.switchTab to be async and include vote result fetching
+      window.switchTab = async function(tab) {
         // Update content visibility
         document.getElementById('teamContent').classList.toggle('hidden', tab !== 'team');
         document.getElementById('roleContent').classList.toggle('hidden', tab !== 'role');
+        document.getElementById('votingContent').classList.toggle('hidden', tab !== 'voting');
         
         // Update tab button styles
         document.getElementById('teamTab').classList.toggle('active', tab === 'team');
         document.getElementById('roleTab').classList.toggle('active', tab === 'role');
+        document.getElementById('votingTab').classList.toggle('active', tab === 'voting');
+
+        // Load vote results when switching to voting tab
+        if (tab === 'voting' && currentUser && currentTeam) {
+          updateVoteResultsDisplay(null); // Show loading state
+          const results = await fetchVoteResults();
+          updateVoteResultsDisplay(results);
+        }
       }
     }
 
-    // Show and configure action buttons based on role
-    if (actionButtons) {
-      actionButtons.classList.remove('hidden');
-      
-      // Configure Backdoor action button
-      if (currentRole === 'Backdoor' && backdoorAction) {
-        backdoorAction.classList.remove('hidden');
-        const isLeakEnabled = Boolean(appConfig.allow_submit_leak);
-        backdoorAction.disabled = !isLeakEnabled;
-        backdoorAction.title = !isLeakEnabled ? 'This action is currently disabled' : '';
-        if (!isLeakEnabled) {
-          backdoorAction.classList.add('opacity-50', 'cursor-not-allowed');
-        } else {
-          backdoorAction.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
-      } else if (backdoorAction) {
-        backdoorAction.classList.add('hidden');
-      }
-
-      // Configure vote button
-      if (voteAction) {
-        const isVoteEnabled = appConfig.allow_vote === 1 || appConfig.allow_vote === true;
-        const hasVoted = localStorage.getItem('hasVoted') === 'true';
-        
-        voteAction.disabled = !isVoteEnabled;
-        voteAction.title = !isVoteEnabled ? 'Voting is currently disabled' : '';
-        
-        voteAction.innerHTML = `
-          <div class="flex flex-col items-center">
-            <span>$ vote --leak</span>
-            ${hasVoted ? 
-              '<span class="text-xs opacity-75 mt-1">คุณได้โหวตแล้ว แต่สามารถเปลี่ยนได้</span>' :
-              !isVoteEnabled ? 
-                '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>' : 
-                '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>'
-            }
-          </div>
-        `;
-        
-        if (!isVoteEnabled) {
-          voteAction.classList.add('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
-          voteAction.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
-        } else {
-          voteAction.classList.remove('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
-          voteAction.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
-          
-          // Initialize vote modal if not already done
-          if (!voteModal) {
-            voteModal = new VoteModal();
-          }
-          
-          // Add click handler for vote button
-          voteAction.addEventListener('click', () => {
-            if (isVoteEnabled) {
-              voteModal.open();
-            }
-          });
-        }
-      }
-
-      // Hide action buttons section if no visible buttons
-      if (currentRole === 'AI') {
-        actionButtons.classList.add('hidden');
-      }
-    }
   } catch (error) {
     console.error('Error fetching role:', error);
-    if (pinError) pinError.classList.remove('hidden');
-  } finally {
-    if (button) {
-      button.classList.remove("btn-loading");
-      updateButtonState();
-    }
   }
 }
 
@@ -1094,5 +1123,173 @@ async function clearCache() {
       toast.classList.add('opacity-0');
       setTimeout(() => document.body.removeChild(toast), 300);
     }, 3000);
+  }
+}
+
+// Add refresh config function
+async function refreshConfig() {
+  console.log('Starting config refresh...');
+  
+  // Get the refresh button
+  const button = document.querySelector('button[onclick="refreshConfig()"]');
+  console.log('Refresh button found:', button);
+  
+  if (button) {
+    const text = button.querySelector('.text');
+    const spinner = button.querySelector('.spinner');
+    
+    // Show loading state
+    text.classList.add('hidden');
+    spinner.classList.remove('hidden');
+    button.disabled = true;
+  }
+
+  try {
+    const response = await fetch('/exec?action=get_config');
+    const data = await response.json();
+    console.log('Config data received:', data);
+
+    // Update active voting round for Mai
+    const name = localStorage.getItem('name');
+    const adminControls = document.getElementById('adminControls');
+    const activeVotingRound = document.getElementById('activeVotingRound');
+    
+    if (name === 'Mai' && adminControls && activeVotingRound) {
+      adminControls.classList.remove('hidden');
+      const round = parseInt(data.active_voting_round) || -1;
+      activeVotingRound.textContent = round === -1 ? 'ไม่มี' : `รอบที่ ${round}`;
+    }
+
+  } catch (error) {
+    console.error('Error refreshing config:', error);
+    alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+  } finally {
+    // Reset button state
+    if (button) {
+      const text = button.querySelector('.text');
+      const spinner = button.querySelector('.spinner');
+      
+      text.classList.remove('hidden');
+      spinner.classList.add('hidden');
+      button.disabled = false;
+    }
+  }
+}
+
+// Keep only this clean implementation for fetching vote results
+async function fetchVoteResults() {
+  try {
+    const response = await fetch(`${API_URL}?voteResult=true&team=${currentTeam}`);
+    const data = await response.json();
+    console.log('Voting results received:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching vote results:', error);
+    return null;
+  }
+}
+
+// Function to update vote results display
+function updateVoteResultsDisplay(results) {
+  const loadingElement = document.getElementById('voteResultsLoading');
+  const contentElement = document.getElementById('voteResultsContent');
+  const listElement = document.getElementById('voteResultsList');
+
+  if (!results) {
+    loadingElement.classList.remove('hidden');
+    contentElement.classList.add('hidden');
+    return;
+  }
+
+  // Get AI members from cache
+  const aiMembers = getCachedData('aiMembers') || [];
+
+  // Sort members by vote count in descending order
+  const sortedMembers = Object.entries(results)
+    .filter(([name]) => !aiMembers.includes(name)) // Exclude AI members using cached data
+    .sort(([, a], [, b]) => b - a);
+
+  // Get the maximum votes for scaling
+  const maxVotes = Math.max(...sortedMembers.map(([, votes]) => votes));
+
+  // Create the HTML for vote results
+  const resultsHTML = sortedMembers.map(([name, votes], index) => {
+    // Calculate percentage for bar width
+    const percentage = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
+    
+    return `
+      <div class="relative flex items-center mb-2 h-12">
+        <!-- Rank Number -->
+        <div class="absolute left-0 w-8 text-center">
+          <span class="text-gray-400 text-sm">#${index + 1}</span>
+        </div>
+        
+        <!-- Name and Votes -->
+        <div class="absolute left-10 right-0 flex items-center h-full">
+          <!-- Bar Background -->
+          <div class="absolute right-0 h-full bg-gray-700 rounded-lg" style="width: ${percentage}%">
+            <!-- Gradient Overlay -->
+            <div class="absolute inset-0 bg-gradient-to-l from-red-500/20 to-transparent rounded-lg"></div>
+          </div>
+          
+          <!-- Name (left aligned) -->
+          <div class="absolute left-2 z-10">
+            <span class="text-white font-medium">${name}</span>
+          </div>
+          
+          <!-- Vote Count (right aligned) -->
+          <div class="absolute right-2 z-10">
+            <span class="text-gray-300 font-medium">${votes}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listElement.innerHTML = resultsHTML;
+  loadingElement.classList.add('hidden');
+  contentElement.classList.remove('hidden');
+}
+
+// Update the vote submission function
+async function submitVote(round) {
+  const select = document.getElementById(`vote-${round}`);
+  const votedFor = select.value;
+  
+  if (!votedFor) {
+    alert('กรุณาเลือกผู้เล่นที่ต้องการโหวต');
+    return;
+  }
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        vote: 'true',
+        voterId: currentUser,
+        votedFor: votedFor,
+        round: round.toString(),
+        pin: localStorage.getItem('pin')
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    // Update the vote results display with the returned data
+    updateVoteResultsDisplay(result);
+    
+    // Show success message
+    showMessage('บันทึกการโหวตเรียบร้อยแล้ว', 'success');
+    
+  } catch (error) {
+    console.error('Error submitting vote:', error);
+    showMessage(error.message || 'เกิดข้อผิดพลาดในการบันทึกการโหวต', 'error');
   }
 } 
