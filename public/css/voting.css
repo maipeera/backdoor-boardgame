@@ -1,121 +1,249 @@
 .modal {
-  display: none;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.75);
   z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  pointer-events: auto;
+  overscroll-behavior: contain;
+}
+
+.modal.show {
+  display: flex;
 }
 
 .modal-content {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease-out;
+  pointer-events: auto;
   position: relative;
-  background-color: #1f2937;
-  margin: 15% auto;
-  padding: 20px;
-  width: 90%;
-  max-width: 500px;
-  border-radius: 8px;
-  color: white;
+  overscroll-behavior: contain;
+}
+
+/* Ensure the modal content blocks all interactions with elements behind it */
+.modal-content * {
+  pointer-events: auto;
+}
+
+/* Prevent body scrolling when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .modal h2 {
-  color: #10b981;
+  color: #f3f4f6;
   font-size: 1.5rem;
   font-weight: 600;
-  margin-bottom: 1rem;
+  margin: 0;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid #374151;
 }
 
-.players-list {
+.revote-message {
+  padding: 1rem 1.5rem;
+  color: #9CA3AF;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  border-bottom: 1px solid #374151;
+  background-color: #2d3748;
+}
+
+#playersList {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+#playersList::-webkit-scrollbar {
+  width: 8px;
+}
+
+#playersList::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 4px;
+}
+
+#playersList::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+#playersList::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+.players-list .text-center {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  text-align: center;
+  color: #9CA3AF;
+  font-size: 0.875rem;
+  border: 2px dashed #4B5563;
+  border-radius: 0.75rem;
+  margin: 1rem 0;
 }
 
 .player-option {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem;
+  padding: 1rem;
   background-color: #374151;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .player-option:hover {
   background-color: #4b5563;
+  transform: translateY(-1px);
 }
 
 .player-option input[type="radio"] {
-  width: 1rem;
-  height: 1rem;
+  width: 1.125rem;
+  height: 1.125rem;
   accent-color: #10b981;
 }
 
 .button-group {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.25rem 1.5rem;
+  background-color: #1f2937;
+  border-top: 1px solid #374151;
   display: flex;
-  gap: 0.75rem;
+  gap: 1rem;
+  justify-content: flex-end;
+  border-radius: 0 0 12px 12px;
 }
 
-.cancel-btn, .confirm-btn, .ok-btn {
-  flex: 1;
-  padding: 0.5rem 1rem;
+.cancel-btn, .confirm-btn {
+  padding: 0.625rem 1.25rem;
   border-radius: 0.5rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .cancel-btn {
   background-color: #4b5563;
-  color: white;
+  color: #f3f4f6;
 }
 
 .cancel-btn:hover {
-  background-color: #374151;
+  background-color: #6b7280;
 }
 
 .confirm-btn {
-  background-color: #10b981;
-  color: white;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
-.confirm-btn:hover:not(:disabled) {
-  background-color: #059669;
-}
-
-.confirm-btn:disabled {
-  opacity: 0.5;
+/* Not ready state */
+.confirm-btn--not-ready {
+  background-color: #374151;
+  color: #9CA3AF;
   cursor: not-allowed;
 }
 
-.ok-btn {
+/* Ready state */
+.confirm-btn--ready {
   background-color: #10b981;
   color: white;
-  width: 100%;
-  margin-top: 1rem;
+  cursor: pointer;
 }
 
-.ok-btn:hover {
+.confirm-btn--ready:hover {
   background-color: #059669;
+}
+
+/* Submitting state */
+.confirm-btn--submitting {
+  background-color: #10b981;
+  color: white;
+  cursor: wait;
+  opacity: 0.8;
 }
 
 .success-message {
   text-align: center;
-  margin: 1rem 0;
+  padding: 2rem 1rem;
+  color: #f3f4f6;
 }
 
 .success-message p:first-child {
-  color: #10b981;
+  font-size: 1.75rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
 }
 
 .success-message p:last-child {
-  color: #fbbf24;
+  color: #9CA3AF;
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+/* Loading spinner - only visible in submitting state */
+.loading-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .modal {
+    padding: 0;
+  }
+  
+  .modal-content {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .button-group {
+    border-radius: 0;
+  }
+}
+
+.modal-content, .players-list, .button-group {
+  transition: all 0.3s ease-in-out;
 }
 
 .vote-button {

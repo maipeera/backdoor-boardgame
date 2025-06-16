@@ -28,7 +28,8 @@ function testValidatePIN() {
 function testShowRole() {
   const fakeEvent = {
     parameter: {
-      name: 'Mai'
+      name: 'Asma',
+      pin: '1234'
     }
   };
   const result = doGet(fakeEvent);
@@ -227,11 +228,14 @@ function getRoleData(playerSheet, roleSheet, name) {
   const nameIdx = playerHeaders.indexOf("Name");
   const roleIdx = playerHeaders.indexOf("Role");
   const teamIdx = playerHeaders.indexOf("Team");
+  const voteIdx = playerHeaders.indexOf("Vote-1");
   
   const roleKeyIdx = roleHeaders.indexOf("Role");
   const instIdx = roleHeaders.indexOf("Instruction");
   const iconIdx = roleHeaders.indexOf("Icon");
   const specificDataIdx = roleHeaders.indexOf("SpecificData");
+  const winConditionIdx = roleHeaders.indexOf("win_condition");
+  const recommendationIdx = roleHeaders.indexOf("recommendation");
   
   // Find player row
   const playerRow = playerData.find((row, index) => index > 0 && row[nameIdx].toLowerCase().trim() === name.toLowerCase().trim());
@@ -240,15 +244,30 @@ function getRoleData(playerSheet, roleSheet, name) {
   const playerRole = playerRow[roleIdx];
   const team = playerRow[teamIdx];
   
+  // Get voted player name if exists
+  let isVoted = false;
+  if (voteIdx !== -1 && playerRow[voteIdx]) {
+    isVoted = true;
+  }
+  
   // Find instruction and specific data for the role
   let instruction = "No instruction available";
   let roleIcon = "💻"; // Default icon
   let roleSpecificConfig = null;
+  let winCondition = "No win condition available";
+  let recommendation = "No recommendation available";
+  
   const roleInstructionRow = roleData.find((row, index) => index > 0 && row[roleKeyIdx] === playerRole);
   if (roleInstructionRow) {
     instruction = roleInstructionRow[instIdx];
     if (iconIdx !== -1 && roleInstructionRow[iconIdx]) {
       roleIcon = roleInstructionRow[iconIdx];
+    }
+    if (winConditionIdx !== -1 && roleInstructionRow[winConditionIdx]) {
+      winCondition = roleInstructionRow[winConditionIdx];
+    }
+    if (recommendationIdx !== -1 && roleInstructionRow[recommendationIdx]) {
+      recommendation = roleInstructionRow[recommendationIdx];
     }
     // Try to parse role-specific configuration if available
     if (specificDataIdx !== -1 && roleInstructionRow[specificDataIdx]) {
@@ -265,6 +284,11 @@ function getRoleData(playerSheet, roleSheet, name) {
     .filter(row => row[teamIdx] === team) // Get only team members
     .map(row => row[nameIdx]) // Get only names
     .filter(memberName => memberName !== playerRow[nameIdx]); // Exclude current player
+
+  // Get AI members in the team
+  const aiMembers = playerData.slice(1) // Skip header row
+    .filter(row => row[teamIdx] === team && row[roleIdx] === 'AI') // Get only AI members in the team
+    .map(row => row[nameIdx]); // Get only names
   
   // Get mission data
   const teamMissionData = missionSheet.getDataRange().getValues();
@@ -326,7 +350,11 @@ function getRoleData(playerSheet, roleSheet, name) {
     roleIcon: roleIcon,
     team: team,
     instruction: instruction,
+    winCondition: winCondition,
+    recommendation: recommendation,
     teamMembers: teamMembers,
+    AI: aiMembers,
+    isVoted: isVoted,
     teamMission: teamMission
   };
   
@@ -431,17 +459,20 @@ function getConfiguration(sheet) {
       console.log('Raw allow_vote value:', value, 'type:', typeof value);
     }
     
-    // Convert string boolean values to actual booleans
+    // Convert boolean values (handle both string and numeric formats)
     if (value === 'true' || value === 'false') {
       value = value === 'true';
-      // Log the converted value
-      if (key === 'allow_vote') {
-        console.log('Converted allow_vote value:', value, 'type:', typeof value);
-      }
+    } else if (value === 1 || value === 0) {
+      value = value === 1;
     }
-    // Convert numeric strings to numbers
+    // Convert other numeric strings to numbers
     else if (!isNaN(value)) {
       value = Number(value);
+    }
+    
+    // Log the converted value
+    if (key === 'allow_vote') {
+      console.log('Converted allow_vote value:', value, 'type:', typeof value);
     }
     
     config[key] = value;
@@ -499,7 +530,6 @@ function doPost(e) {
       const playerSheet = ss.getSheetByName('Player');
       const playerData = playerSheet.getDataRange().getValues();
       const headers = playerData[0];
-      const idIdx = headers.indexOf("ID");
       const nameIdx = headers.indexOf("Name");
       const voteIdx = headers.indexOf("Vote-1");
 
@@ -513,10 +543,10 @@ function doPost(e) {
       
       playerData.forEach((row, index) => {
         if (index > 0) {
-          if (row[idIdx] === voterId) {
+          if (row[nameIdx] === voterId) {
             voterRowIndex = index;
           }
-          if (row[idIdx] === votedFor) {
+          if (row[nameIdx] === votedFor) {
             votedPlayerName = row[nameIdx];
           }
         }

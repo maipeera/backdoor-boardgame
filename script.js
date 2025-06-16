@@ -6,6 +6,7 @@ let currentRole = ''; // Store current user's role
 let appConfig = {}; // Store application configuration
 let currentUser = '';
 let currentTeam = '';
+let voteModal = null;
 
 // Add cache helper functions at the top
 function getCachedData(key) {
@@ -438,6 +439,27 @@ async function fetchRole() {
     currentRole = data.role;
     currentUser = data.name;
     currentTeam = data.team;
+
+    // Store team members, AI members, and voting info in localStorage
+    if (data.teamMembers) {
+      const teamMembersList = data.teamMembers.map(name => ({
+        id: name,
+        name: name
+      }));
+      localStorage.setItem('currentUserId', currentUser);
+      setCachedData('teamMembers', teamMembersList, 24 * 60 * 60 * 1000);
+      
+      if (data.AI && Array.isArray(data.AI)) {
+        setCachedData('aiMembers', data.AI, 24 * 60 * 60 * 1000);
+      }
+
+      // Store voting information
+      if (data.isVoted) {
+        localStorage.setItem('hasVoted', 'true');
+      } else {
+        localStorage.removeItem('hasVoted');
+      }
+    }
     
     // Hide name selection, PIN input sections, and instruction text
     if (nameSelectContainer) nameSelectContainer.classList.add('hidden');
@@ -501,18 +523,26 @@ async function fetchRole() {
 
             <!-- Role Tab Content -->
             <div id="roleContent" class="space-y-4 hidden">
-              <div class="flex items-center gap-2">
-                <span class="text-green-400">&gt;</span>
-                <h3 class="text-xl font-semibold text-white">${data.name}</h3>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-yellow-400">&gt;</span>
+              <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
                 <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.role} ${getRoleEmoji(data.role, data.roleIcon)}</span></div>
+                <div class="mt-2 font-medium text-gray-200">ทีม: <span class="text-white">${data.team}</span></div>
               </div>
-              <div class="flex items-start gap-2">
-                <span class="text-blue-400">&gt;</span>
+
+              <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
+                <h3 class="text-lg font-medium text-yellow-400 mb-2">📋 คำแนะนำ</h3>
                 <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.instruction}</p>
               </div>
+
+              <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
+                <h3 class="text-lg font-medium text-green-400 mb-2">🏆 เงื่อนไขการชนะ</h3>
+                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.winCondition}</p>
+              </div>
+
+              <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
+                <h3 class="text-lg font-medium text-blue-400 mb-2">💡 กลยุทธ์แนะนำ</h3>
+                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.recommendation}</p>
+              </div>
+
               ${renderRoleSpecificData(data.roleData)}
             </div>
           </div>
@@ -537,7 +567,7 @@ async function fetchRole() {
                   id="roleTab"
                 >
                   <div class="flex flex-col items-center">
-                    <span class="text-xl mb-1">${getRoleEmoji(data.role, data.roleIcon)}</span>
+                    <span class="text-xl mb-1">🧑‍💻</span>
                     <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">บทบาท</span>
                   </div>
                 </button>
@@ -580,25 +610,42 @@ async function fetchRole() {
 
       // Configure vote button
       if (voteAction) {
-        const isVoteEnabled = Boolean(appConfig.allow_vote);
+        const isVoteEnabled = appConfig.allow_vote === 1 || appConfig.allow_vote === true;
         const hasVoted = localStorage.getItem('hasVoted') === 'true';
-        console.log('Vote button state:', {
-          isVoteEnabled,
-          hasVoted,
-          appConfigAllowVote: appConfig.allow_vote,
-          currentRole
-        });
         
-        voteAction.disabled = hasVoted || !isVoteEnabled;
-        voteAction.title = !isVoteEnabled ? 'Voting is currently disabled' : 
-                          hasVoted ? 'You have already voted' : '';
+        voteAction.disabled = !isVoteEnabled;
+        voteAction.title = !isVoteEnabled ? 'Voting is currently disabled' : '';
         
-        if (!isVoteEnabled || hasVoted) {
+        voteAction.innerHTML = `
+          <div class="flex flex-col items-center">
+            <span>$ vote --leak</span>
+            ${hasVoted ? 
+              '<span class="text-xs opacity-75 mt-1">คุณได้โหวตแล้ว แต่สามารถเปลี่ยนได้</span>' :
+              !isVoteEnabled ? 
+                '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>' : 
+                '<span class="text-xs opacity-75 mt-1">จะเปิดให้โหวตวัน outing กิจกรรมกลางคืน</span>'
+            }
+          </div>
+        `;
+        
+        if (!isVoteEnabled) {
           voteAction.classList.add('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
           voteAction.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
         } else {
           voteAction.classList.remove('bg-gray-700', 'text-gray-400', 'opacity-75', 'cursor-not-allowed');
           voteAction.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
+          
+          // Initialize vote modal if not already done
+          if (!voteModal) {
+            voteModal = new VoteModal();
+          }
+          
+          // Add click handler for vote button
+          voteAction.addEventListener('click', () => {
+            if (isVoteEnabled) {
+              voteModal.open();
+            }
+          });
         }
       }
 
@@ -721,8 +768,10 @@ async function handleSpecialAction(actionType) {
   }[actionType];
 
   if (actionType === 'vote') {
-    // Use the voting modal from voting.js
-    showVoteModal();
+    // Use the new VoteModal class
+    if (voteModal) {
+      voteModal.open();
+    }
     return;
   }
 
