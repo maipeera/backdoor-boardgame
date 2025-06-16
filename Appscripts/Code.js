@@ -153,8 +153,8 @@ function doGet(e) {
       }));
     }
 
-    const roleData = getRoleData(playerSheet, roleSheet, name);
-    return output.setContent(JSON.stringify(roleData));
+    const roleData = getRoleData(e);
+    return roleData;
   } catch (error) {
     return output.setContent(JSON.stringify({
       error: error.toString()
@@ -213,221 +213,173 @@ function validatePin(pinSheet, name, pin) {
   return userRow && userRow[pinIdx].toString().trim() === pin.toString().trim();
 }
 
-function getRoleData(playerSheet, roleSheet, name) {
+function getRoleData(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const playerSheet = ss.getSheetByName("Player");
+  const teamMissionSheet = ss.getSheetByName("Team-Mission");
+  const missionSheet = ss.getSheetByName("Mission");
+  const roleSheet = ss.getSheetByName("Role");
+  
   const playerData = playerSheet.getDataRange().getValues();
-  const roleData = roleSheet.getDataRange().getValues();
-  const missionSheet = ss.getSheetByName('Team-Mission');
-  const missionDataSheet = ss.getSheetByName('Mission');
-  const backdoorMissionSheet = ss.getSheetByName('Backdoor-Mission');
+  const teamMissionData = teamMissionSheet.getDataRange().getValues();
+  const missionData = missionSheet.getDataRange().getValues();
+  const roleSheetData = roleSheet.getDataRange().getValues();
   
-  const playerHeaders = playerData[0];
-  const roleHeaders = roleData[0];
-  
-  // Get column indexes
-  const nameIdx = playerHeaders.indexOf("Name");
-  const roleIdx = playerHeaders.indexOf("Role");
-  const teamIdx = playerHeaders.indexOf("Team");
-  const voteIdx = playerHeaders.indexOf("Vote-1");
-  
-  const roleKeyIdx = roleHeaders.indexOf("Role");
-  const instIdx = roleHeaders.indexOf("Instruction");
-  const iconIdx = roleHeaders.indexOf("Icon");
-  const specificDataIdx = roleHeaders.indexOf("SpecificData");
-  const winConditionIdx = roleHeaders.indexOf("win_condition");
-  const recommendationIdx = roleHeaders.indexOf("recommendation");
-  
-  // Find player row
-  const playerRow = playerData.find((row, index) => index > 0 && row[nameIdx].toLowerCase().trim() === name.toLowerCase().trim());
-  if (!playerRow) return null;
-  
-  const playerRole = playerRow[roleIdx];
-  const team = playerRow[teamIdx];
-  
-  // Get voted player name if exists
-  let isVoted = false;
-  if (voteIdx !== -1 && playerRow[voteIdx]) {
-    isVoted = true;
-  }
-  
-  // Find instruction and specific data for the role
-  let instruction = "No instruction available";
-  let roleIcon = "💻"; // Default icon
-  let roleSpecificConfig = null;
-  let winCondition = "No win condition available";
-  let recommendation = "No recommendation available";
-  
-  const roleInstructionRow = roleData.find((row, index) => index > 0 && row[roleKeyIdx] === playerRole);
-  if (roleInstructionRow) {
-    instruction = roleInstructionRow[instIdx];
-    if (iconIdx !== -1 && roleInstructionRow[iconIdx]) {
-      roleIcon = roleInstructionRow[iconIdx];
-    }
-    if (winConditionIdx !== -1 && roleInstructionRow[winConditionIdx]) {
-      winCondition = roleInstructionRow[winConditionIdx];
-    }
-    if (recommendationIdx !== -1 && roleInstructionRow[recommendationIdx]) {
-      recommendation = roleInstructionRow[recommendationIdx];
-    }
-    // Try to parse role-specific configuration if available
-    if (specificDataIdx !== -1 && roleInstructionRow[specificDataIdx]) {
-      try {
-        roleSpecificConfig = JSON.parse(roleInstructionRow[specificDataIdx]);
-      } catch (e) {
-        console.error('Failed to parse role specific data for ' + playerRole);
-      }
-    }
-  }
-  
-  // Get all team members (without roles)
-  const teamMembers = playerData.slice(1) // Skip header row
-    .filter(row => row[teamIdx] === team) // Get only team members
-    .map(row => row[nameIdx]) // Get only names
-    .filter(memberName => memberName !== playerRow[nameIdx]); // Exclude current player
-
-  // Get AI members in the team
-  const aiMembers = playerData.slice(1) // Skip header row
-    .filter(row => row[teamIdx] === team && row[roleIdx] === 'AI') // Get only AI members in the team
-    .map(row => row[nameIdx]); // Get only names
-  
-  // Get mission data
-  const teamMissionData = missionSheet.getDataRange().getValues();
-  const missionData = missionDataSheet.getDataRange().getValues();
-  const backdoorMissionData = backdoorMissionSheet ? backdoorMissionSheet.getDataRange().getValues() : [];
-  
-  // Get column indexes for Team-Mission sheet
+  const headers = playerData[0];
   const teamMissionHeaders = teamMissionData[0];
-  const teamMissionTeamIdx = teamMissionHeaders.indexOf("Team");
-  const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
-  const backdoorMissionIdIdx = teamMissionHeaders.indexOf("backdoor-mission-id");
-  
-  // Get column indexes for Mission sheet
   const missionHeaders = missionData[0];
-  const idIdx = missionHeaders.indexOf("id");
-  const teamMissionIdx = missionHeaders.indexOf("Team Mission");
-  const legacyMissionIdx = missionHeaders.indexOf("Legacy code Mission");
+  const roleHeaders = roleSheetData[0];
   
-  // Get column indexes for Backdoor-Mission sheet
-  let backdoorMissionHeaders = [];
-  let backdoorIdIdx = -1;
-  let backdoorMissionContentIdx = -1;
-  if (backdoorMissionData.length > 0) {
-    backdoorMissionHeaders = backdoorMissionData[0];
-    backdoorIdIdx = backdoorMissionHeaders.indexOf("id");
-    backdoorMissionContentIdx = backdoorMissionHeaders.indexOf("Backdoor Mission");
+  const nameIdx = headers.indexOf("Name");
+  const roleIdx = headers.indexOf("Role");
+  const teamIdx = headers.indexOf("Team");
+  const roleIdIdx = roleHeaders.indexOf("id");
+  const roleNameIdx = roleHeaders.indexOf("Role");
+  const roleIconIdx = roleHeaders.indexOf("icon");
+  const roleInstructionIdx = roleHeaders.indexOf("instruction");
+  const roleWinConditionIdx = roleHeaders.indexOf("win_condition");
+  const roleRecommendationIdx = roleHeaders.indexOf("recommendation");
+  
+  // Get role mapping
+  const roleMap = {};
+  const roleInfoMap = {};
+  for (let i = 1; i < roleSheetData.length; i++) {
+    const roleId = roleSheetData[i][roleIdIdx];
+    roleMap[roleId] = roleSheetData[i][roleNameIdx];
+    roleInfoMap[roleId] = {
+      name: roleSheetData[i][roleNameIdx],
+      icon: roleSheetData[i][roleIconIdx],
+      instruction: roleSheetData[i][roleInstructionIdx],
+      win_condition: roleSheetData[i][roleWinConditionIdx],
+      recommendation: roleSheetData[i][roleRecommendationIdx]
+    };
   }
   
-  // Find team's mission
-  const teamMissionRow = teamMissionData.find((row, index) => index > 0 && row[teamMissionTeamIdx] === team);
-  let teamMission = null;
-  let legacyMission = null;
-  let backdoorMission = null;
+  const playerName = e.parameter.name;
+  const playerRow = playerData.findIndex((row, idx) => idx > 0 && row[nameIdx] === playerName);
   
-  if (teamMissionRow) {
-    const missionId = teamMissionRow[missionIdIdx];
-    const backdoorMissionId = teamMissionRow[backdoorMissionIdIdx];
+  if (playerRow === -1) {
+    return ContentService.createTextOutput(JSON.stringify({ error: "Player not found" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const playerRole = playerData[playerRow][roleIdx];
+  const playerTeam = playerData[playerRow][teamIdx];
+  const roleName = roleMap[playerRole];
+  const roleInfo = roleInfoMap[playerRole];
+  
+  // Get team members (only names)
+  const teamMembers = playerData.slice(1) // Skip header row
+    .filter(row => row[teamIdx] === playerTeam) // Get only team members
+    .map(row => row[nameIdx]); // Only include names
+  
+  // Get team mission data
+  const teamMissionRow = teamMissionData.findIndex((row, idx) => idx > 0 && row[0] === playerTeam);
+  let teamMission = null;
+  
+  if (teamMissionRow !== -1) {
+    const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+    const missionId = teamMissionData[teamMissionRow][missionIdIdx];
     
-    // Get team/legacy mission
-    const missionRow = missionData.find((row, index) => index > 0 && row[idIdx] === missionId);
-    if (missionRow) {
-      teamMission = missionRow[teamMissionIdx];
-      legacyMission = missionRow[legacyMissionIdx];
-    }
-    
-    // Get backdoor mission if applicable
-    if (backdoorMissionId && backdoorMissionData.length > 0) {
-      const backdoorRow = backdoorMissionData.find((row, index) => index > 0 && row[backdoorIdIdx] === backdoorMissionId);
-      if (backdoorRow) {
-        backdoorMission = backdoorRow[backdoorMissionContentIdx];
+    if (missionId) {
+      const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
+      if (missionRow !== -1) {
+        const teamMissionIdx = missionHeaders.indexOf("team-mission");
+        const backdoorHintIdx = missionHeaders.indexOf("backdoor-hint");
+        const installerHintIdx = missionHeaders.indexOf("installer-hint");
+        
+        // Get appropriate mission based on role
+        if (roleName === "Backdoor" && backdoorHintIdx !== -1) {
+          teamMission = missionData[missionRow][backdoorHintIdx];
+        } else if (roleName === "Backdoor Installer" && installerHintIdx !== -1) {
+          teamMission = missionData[missionRow][installerHintIdx];
+        } else if (teamMissionIdx !== -1) {
+          teamMission = missionData[missionRow][teamMissionIdx];
+        }
       }
     }
   }
   
-  // Create response object
+  let roleSpecificData = null;
+  
+  // Handle role-specific data
+  switch (roleName) {
+    case "Backdoor":
+      if (teamMissionRow !== -1) {
+        const missionIdx = teamMissionHeaders.indexOf("backdoor-mission-id");
+        if (missionIdx !== -1) {
+          roleSpecificData = {
+            type: "backdoor_mission",
+            mission: teamMissionData[teamMissionRow][missionIdx]
+          };
+        }
+      }
+      break;
+      
+    case "Backdoor Installer":
+      if (teamMissionRow !== -1) {
+        const missionIdx = teamMissionHeaders.indexOf("installer-mission");
+        if (missionIdx !== -1) {
+          roleSpecificData = {
+            type: "installer_mission",
+            mission: teamMissionData[teamMissionRow][missionIdx]
+          };
+        }
+      }
+      break;
+      
+    case "Legacy Code":
+      if (teamMissionRow !== -1) {
+        const missionIdx = teamMissionHeaders.indexOf("legacy-mission");
+        if (missionIdx !== -1) {
+          roleSpecificData = {
+            type: "legacy_mission",
+            mission: teamMissionData[teamMissionRow][missionIdx]
+          };
+        }
+      }
+      break;
+      
+    case "Staff Engineer":
+      if (teamMissionRow !== -1) {
+        const suspects = [];
+        for (let i = 1; i <= 4; i++) {
+          const suspectIdx = teamMissionHeaders.indexOf(`se-sus-${i}`);
+          if (suspectIdx !== -1) {
+            const suspect = teamMissionData[teamMissionRow][suspectIdx];
+            if (suspect) {
+              suspects.push(suspect);
+            }
+          }
+        }
+        if (suspects.length > 0) {
+          roleSpecificData = {
+            type: "se_suspects",
+            suspects: suspects
+          };
+        }
+      }
+      break;
+  }
+  
   const response = {
-    name: playerRow[nameIdx],
-    role: playerRole,
-    roleIcon: roleIcon,
-    team: team,
-    instruction: instruction,
-    winCondition: winCondition,
-    recommendation: recommendation,
-    teamMembers: teamMembers,
-    AI: aiMembers,
-    isVoted: isVoted,
-    teamMission: teamMission
+    roleData: {
+      name: roleInfo.name,
+      icon: roleInfo.icon,
+      instruction: roleInfo.instruction,
+      win_condition: roleInfo.win_condition,
+      recommendation: roleInfo.recommendation,
+      ...roleSpecificData
+    },
+    team: {
+      name: playerTeam,
+      mission: teamMission,
+      members: teamMembers
+    }
   };
   
-  // Add role-specific data based on role
-  switch (playerRole) {
-    case "EM":
-    case "AI":
-      // For EM and AI roles, show team members with roles
-      response.roleData = {
-        type: "team_list",
-        role: playerRole,
-        members: playerData.slice(1) // Skip header row
-          .filter(row => row[teamIdx] === team) // Get only team members
-          .map(row => ({
-            name: row[nameIdx],
-            role: row[roleIdx]
-          }))
-      };
-      break;
-
-    case "Legacy code":
-      // For Legacy code role, include the legacy mission
-      response.roleData = {
-        type: "legacy_mission",
-        role: playerRole,
-        mission: legacyMission
-      };
-      break;
-      
-    case "Backdoor":
-      // For Backdoor role, include the backdoor mission
-      if (backdoorMission) {
-        response.roleData = {
-          type: "backdoor_mission",
-          role: playerRole,
-          mission: backdoorMission
-        };
-      }
-      break;
-
-    case "Backdoor Installer":
-      // Find the Backdoor member in the team
-      const backdoorMember = playerData.slice(1)
-        .find(row => row[teamIdx] === team && row[roleIdx] === 'Backdoor');
-      
-      // Get Backdoor's role icon
-      const backdoorRoleRow = roleData.find(row => row[roleKeyIdx] === 'Backdoor');
-      const backdoorIcon = backdoorRoleRow && iconIdx !== -1 ? backdoorRoleRow[iconIdx] : '🔑';
-
-      if (backdoorMember && backdoorMission) {
-        response.roleData = {
-          type: "backdoor_installer",
-          role: playerRole,
-          backdoorMember: backdoorMember[nameIdx],
-          backdoorIcon: backdoorIcon,
-          mission: backdoorMission
-        };
-      }
-      break;
-      
-    default:
-      // Handle other roles that might have specific data configured
-      if (roleSpecificConfig) {
-        response.roleData = {
-          type: roleSpecificConfig.type,
-          role: playerRole,
-          ...roleSpecificConfig.data
-        };
-      }
-      break;
-  }
-  
-  return response;
+  return ContentService.createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function getConfiguration(sheet) {

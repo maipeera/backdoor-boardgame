@@ -429,44 +429,36 @@ async function fetchRole() {
     const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}&pin=${pin}`);
     const text = await res.text();
     const data = JSON.parse(text);
+    console.log('Received data from API:', data);
 
     if (data.error) {
+      console.error('API returned error:', data.error);
       if (pinError) pinError.classList.remove('hidden');
       return;
     }
-    
-    // Store current role and user info
-    currentRole = data.role;
-    currentUser = data.name;
-    currentTeam = data.team;
 
-    // Store team members, AI members, and voting info in localStorage
-    if (data.teamMembers) {
-      const teamMembersList = data.teamMembers.map(name => ({
+    // Store current role and user info
+    currentRole = data.roleData.name;
+    currentUser = name;
+    currentTeam = data.team.name;
+    console.log('Stored user info:', { currentRole, currentUser, currentTeam });
+
+    // Store team members in localStorage
+    if (data.team.members) {
+      const teamMembersList = data.team.members.map(name => ({
         id: name,
         name: name
       }));
       localStorage.setItem('currentUserId', currentUser);
-      setCachedData('teamMembers', teamMembersList, 24 * 60 * 60 * 1000);
-      
-      if (data.AI && Array.isArray(data.AI)) {
-        setCachedData('aiMembers', data.AI, 24 * 60 * 60 * 1000);
-      }
-
-      // Store voting information
-      if (data.isVoted) {
-        localStorage.setItem('hasVoted', 'true');
-      } else {
-        localStorage.removeItem('hasVoted');
-      }
+      setCachedData('teamMembers', teamMembersList);
     }
-    
-    // Hide name selection, PIN input sections, and instruction text
+
+    // Hide name selection and PIN input sections
     if (nameSelectContainer) nameSelectContainer.classList.add('hidden');
     if (button) button.classList.add('hidden');
     if (instructionText) instructionText.classList.add('hidden');
-    
     if (pinError) pinError.classList.add('hidden');
+
     if (result) {
       result.classList.remove('hidden');
       
@@ -479,16 +471,16 @@ async function fetchRole() {
           <div id="contentContainer" class="pb-16"> <!-- Add padding at bottom for nav bar -->
             <!-- Team Tab Content -->
             <div id="teamContent" class="space-y-4">
-              ${data.teamMission ? `
+              ${data.team.mission ? `
                 <div class="mb-6">
                   <div class="flex items-center gap-2 mb-3">
                     <span class="text-purple-400">&gt;</span>
-                    <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team}</h3>
+                    <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team.name}</h3>
                   </div>
                   <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
                     <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
                     <div class="border-t border-gray-700 pt-4">
-                      <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.teamMission}</p>
+                      <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.team.mission}</p>
                     </div>
                     <button 
                       onclick="handleSpecialAction('team')" 
@@ -496,22 +488,22 @@ async function fetchRole() {
                       ${!isTeamEnabled ? 'disabled' : ''}
                     >
                       <div class="flex flex-col items-center">
-                        <span>$ execute --submit-result --team-${data.team}</span>
+                        <span>$ execute --submit-result --team-${data.team.name}</span>
                         ${!isTeamEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
                       </div>
                     </button>
                   </div>
                 </div>
 
-                ${data.teamMembers ? `
+                ${data.team.members ? `
                   <div class="mb-6">
                     <div class="flex items-center gap-2 mb-3">
                       <span class="text-purple-400">&gt;</span>
-                      <h3 class="text-lg font-semibold text-white">สมาชิกในทีม ${data.team}</h3>
+                      <h3 class="text-lg font-semibold text-white">สมาชิกในทีม ${data.team.name}</h3>
                     </div>
                     <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
                       <div class="grid grid-cols-2 gap-2">
-                        ${data.teamMembers.map(member => `
+                        ${data.team.members.map(member => `
                           <div class="text-white">${member}</div>
                         `).join('')}
                       </div>
@@ -524,26 +516,24 @@ async function fetchRole() {
             <!-- Role Tab Content -->
             <div id="roleContent" class="space-y-4 hidden">
               <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
-                <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.role} ${getRoleEmoji(data.role, data.roleIcon)}</span></div>
-                <div class="mt-2 font-medium text-gray-200">ทีม: <span class="text-white">${data.team}</span></div>
+                <div class="font-medium text-gray-200">บทบาท: <span class="text-white">${data.roleData.name} ${data.roleData.icon}</span></div>
+                <div class="mt-2 font-medium text-gray-200">ทีม: <span class="text-white">${data.team.name}</span></div>
               </div>
 
               <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
                 <h3 class="text-lg font-medium text-yellow-400 mb-2">📋 คำแนะนำ</h3>
-                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.instruction}</p>
+                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.roleData.instruction}</p>
               </div>
 
               <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
                 <h3 class="text-lg font-medium text-green-400 mb-2">🏆 เงื่อนไขการชนะ</h3>
-                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.winCondition}</p>
+                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.roleData.win_condition}</p>
               </div>
 
               <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
                 <h3 class="text-lg font-medium text-blue-400 mb-2">💡 กลยุทธ์แนะนำ</h3>
-                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.recommendation}</p>
+                <p class="text-gray-100 whitespace-pre-line leading-relaxed">${data.roleData.recommendation}</p>
               </div>
-
-              ${renderRoleSpecificData(data.roleData)}
             </div>
           </div>
 
@@ -558,7 +548,7 @@ async function fetchRole() {
                 >
                   <div class="flex flex-col items-center">
                     <span class="text-xl mb-1">👥</span>
-                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">ทีม ${data.team}</span>
+                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">ทีม ${data.team.name}</span>
                   </div>
                 </button>
                 <button 
