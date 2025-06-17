@@ -387,6 +387,9 @@ function getRoleData(e) {
   const vote1Idx = headers.indexOf("vote-1");
   const vote2Idx = headers.indexOf("vote-2");
   const vote3Idx = headers.indexOf("vote-3");
+  const vote1TimestampIdx = headers.indexOf("vote-1-timestamp");
+  const vote2TimestampIdx = headers.indexOf("vote-2-timestamp");
+  const vote3TimestampIdx = headers.indexOf("vote-3-timestamp");
   const roleIdIdx = roleHeaders.indexOf("id");
   const roleNameIdx = roleHeaders.indexOf("Role");
   const roleIconIdx = roleHeaders.indexOf("icon");
@@ -542,7 +545,10 @@ function getRoleData(e) {
     vote: {
       "vote-1": playerData[playerRow][vote1Idx] || "",
       "vote-2": playerData[playerRow][vote2Idx] || "",
-      "vote-3": playerData[playerRow][vote3Idx] || ""
+      "vote-3": playerData[playerRow][vote3Idx] || "",
+      "vote-1-timestamp": playerData[playerRow][vote1TimestampIdx] ? playerData[playerRow][vote1TimestampIdx].toISOString() : "",
+      "vote-2-timestamp": playerData[playerRow][vote2TimestampIdx] ? playerData[playerRow][vote2TimestampIdx].toISOString() : "",
+      "vote-3-timestamp": playerData[playerRow][vote3TimestampIdx] ? playerData[playerRow][vote3TimestampIdx].toISOString() : ""
     }
   };
   
@@ -686,8 +692,18 @@ function doPost(e) {
         throw new Error('Cannot vote for players from different teams');
       }
 
-      // Update the vote
-      playerSheet.getRange(voterRowIndex + 1, voteIdx + 1).setValue(votedFor);
+      // Update the vote and timestamp
+      const timestampIdx = headers.indexOf(`vote-${round}-timestamp`);
+      if (timestampIdx !== -1) {
+        // Update vote
+        playerSheet.getRange(voterRowIndex + 1, voteIdx + 1).setValue(votedFor);
+        // Update timestamp in its correct column
+        playerSheet.getRange(voterRowIndex + 1, timestampIdx + 1).setValue(new Date());
+      } else {
+        // Just update the vote if timestamp column doesn't exist
+        playerSheet.getRange(voterRowIndex + 1, voteIdx + 1).setValue(votedFor);
+        Logger.log(`Warning: Timestamp column vote-${round}-timestamp not found`);
+      }
 
       // Get vote counts for the team and return
       return output.setContent(JSON.stringify(getTeamVoteCounts(voterTeam)));
@@ -900,6 +916,101 @@ function getTeamSubmissions(team) {
   } catch (error) {
     Logger.log('Error getting team submissions:', error);
     return [];
+  }
+}
+
+function testVoting() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const playerSheet = ss.getSheetByName('Player');
+  const headers = playerSheet.getRange(1, 1, 1, playerSheet.getLastColumn()).getValues()[0];
+  
+  // Log initial state
+  Logger.log('Starting vote test...');
+  Logger.log('Headers:', headers);
+  
+  // Test vote for each round
+  [1, 2, 3].forEach(round => {
+    Logger.log(`\nTesting vote for round ${round}...`);
+    
+    const fakeVote = {
+      parameter: {
+        vote: 'true',
+        voterId: 'Dream',
+        votedFor: 'ดี',
+        round: round.toString(),
+        pin: '1234'
+      }
+    };
+    
+    // Get initial state
+    const voteColIdx = headers.indexOf(`vote-${round}`);
+    const timestampColIdx = headers.indexOf(`vote-${round}-timestamp`);
+    const voterRow = playerSheet.getDataRange().getValues()
+      .find((row, idx) => idx > 0 && row[headers.indexOf('Name')] === 'Dream');
+    
+    if (voterRow) {
+      Logger.log(`Before vote - Current vote: ${voterRow[voteColIdx]}, Timestamp: ${voterRow[timestampColIdx]}`);
+    }
+    
+    // Submit vote
+    const result = doPost(fakeVote);
+    Logger.log(`Vote submission result:`, result.getContent());
+    
+    // Get updated state
+    const updatedData = playerSheet.getDataRange().getValues();
+    const updatedVoterRow = updatedData.find((row, idx) => idx > 0 && row[headers.indexOf('Name')] === 'Dream');
+    
+    if (updatedVoterRow) {
+      Logger.log(`After vote - New vote: ${updatedVoterRow[voteColIdx]}, New Timestamp: ${updatedVoterRow[timestampColIdx]}`);
+    }
+    
+    // Test getRoleData to verify timestamps are included in response
+    const roleDataTest = {
+      parameter: {
+        name: 'Dream',
+        pin: '1234'
+      }
+    };
+    const roleData = getRoleData(roleDataTest);
+    Logger.log(`Role data response (including vote info):`, roleData.getContent());
+    
+    // Add delay between tests
+    Utilities.sleep(1000);
+  });
+}
+
+function testVoteTimestampColumns() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const playerSheet = ss.getSheetByName('Player');
+  const headers = playerSheet.getRange(1, 1, 1, playerSheet.getLastColumn()).getValues()[0];
+  
+  Logger.log('Checking vote timestamp columns...');
+  
+  // Check for required columns
+  const requiredColumns = [
+    'vote-1', 'vote-1-timestamp',
+    'vote-2', 'vote-2-timestamp',
+    'vote-3', 'vote-3-timestamp'
+  ];
+  
+  const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+  
+  if (missingColumns.length > 0) {
+    Logger.log('Missing columns:', missingColumns);
+    Logger.log('Current headers:', headers);
+    
+    // Log column indices for debugging
+    requiredColumns.forEach(col => {
+      const idx = headers.indexOf(col);
+      Logger.log(`${col}: ${idx === -1 ? 'Not found' : `Column ${idx + 1}`}`);
+    });
+  } else {
+    Logger.log('All required vote and timestamp columns are present');
+    
+    // Log column indices for reference
+    requiredColumns.forEach(col => {
+      Logger.log(`${col}: Column ${headers.indexOf(col) + 1}`);
+    });
   }
 }
 

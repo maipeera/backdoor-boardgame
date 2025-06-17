@@ -718,12 +718,18 @@ async function fetchRole() {
                         <div class="bg-gray-700/50 rounded-lg p-4">
                           <div class="flex items-center justify-between mb-3">
                             <h3 class="text-lg font-semibold text-white">รอบที่ ${round}</h3>
-                            ${parseInt(appConfig.active_voting_round) === round ? 
-                              '<span class="text-sm font-medium text-green-400">กำลังเปิดให้โหวต</span>' : 
-                              parseInt(appConfig.active_voting_round) < round ? 
-                                '<span class="text-sm font-medium text-gray-400">ยังไม่เปิดให้โหวต</span>' :
-                                '<span class="text-sm font-medium text-gray-400">ปิดการโหวตแล้ว</span>'
-                            }
+                            <div class="flex flex-col items-end">
+                              ${parseInt(appConfig.active_voting_round) === round ? 
+                                '<span class="text-sm font-medium text-green-400">กำลังเปิดให้โหวต</span>' : 
+                                parseInt(appConfig.active_voting_round) < round ? 
+                                  '<span class="text-sm font-medium text-gray-400">ยังไม่เปิดให้โหวต</span>' :
+                                  '<span class="text-sm font-medium text-gray-400">ปิดการโหวตแล้ว</span>'
+                              }
+                              ${data.vote[`vote-${round}-timestamp`] ? 
+                                `<span class="text-xs text-gray-500 mt-1">โหวตเมื่อ ${new Date(data.vote[`vote-${round}-timestamp`]).toLocaleString()}</span>` : 
+                                ''
+                              }
+                            </div>
                           </div>
                           <div class="flex gap-2">
                             <select 
