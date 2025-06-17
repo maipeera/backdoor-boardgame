@@ -949,6 +949,27 @@ function renderRoleSpecificData(roleData) {
         </div>
       `;
 
+    case "se_suspects":
+      return `
+        <div class="mt-6">
+          <h4 class="text-lg font-semibold text-white mb-3">
+            <span class="text-yellow-400">&gt;</span> รายชื่อผู้ต้องสงสัย ${getRoleEmoji('Staff Engineer', roleData.roleIcon)}
+          </h4>
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              ${roleData.suspects.map((suspect, index) => `
+                <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">
+                  <div class="flex items-center gap-2">
+                    <span class="text-gray-400">#${index + 1}</span>
+                    <span class="text-white">${suspect}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+
     default:
       return '';
   }

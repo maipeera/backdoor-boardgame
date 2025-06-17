@@ -3,6 +3,16 @@ function testLogging() {
   doGet(fakeEvent);
 }
 
+function testGetConfig() {
+  const fakeEvent = {
+    parameter: {
+      get_config: 'true'
+    }
+  };
+  const result = doGet(fakeEvent);
+  Logger.log(result.getContent());
+}
+
 function testListCase() {
   const fakeEvent = {
     parameter: {
@@ -28,7 +38,7 @@ function testValidatePIN() {
 function testShowRole() {
   const fakeEvent = {
     parameter: {
-      name: 'Asma',
+      name: 'Dream',
       pin: '1234'
     }
   };
@@ -597,7 +607,7 @@ function getConfiguration(sheet) {
     const roleData = roleSheet.getDataRange().getValues();
     const roleHeaders = roleData[0];
     const roleKeyIdx = roleHeaders.indexOf("Role");
-    const iconIdx = roleHeaders.indexOf("Icon");
+    const iconIdx = roleHeaders.indexOf("icon");
 
     if (roleKeyIdx !== -1 && iconIdx !== -1) {
       const roleIcons = {};

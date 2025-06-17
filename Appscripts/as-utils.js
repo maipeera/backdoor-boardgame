@@ -101,6 +101,18 @@ function regenerateGroupsAndRoles() {
     for (const team in teamMap) {
       const members = teamMap[team].filter(p => p.position !== "EM");
       const em = teamMap[team].find(p => p.position === "EM");
+
+      // กำหนด EM เป็น AI
+      if (em) {
+        const aiRole = roles.find(r => r.name === "AI");
+        if (aiRole) {
+          sheet.getRange(em.row, roleIdx + 1).setValue(aiRole.id);
+          Logger.log(`Assigned AI role to EM at row ${em.row}`);
+        }
+      }
+
+      // Remove AI role from assignable roles
+      const assignableRoles = roles.filter(r => r.name !== "AI");
   
       // สุ่มผู้เล่นเพื่อกำหนดบทบาท
       const shuffled = members.sort(() => Math.random() - 0.5);
@@ -110,7 +122,7 @@ function regenerateGroupsAndRoles() {
       Logger.log(`Number of members: ${shuffled.length}`);
   
       // First pass: Assign minimum required roles
-      for (const role of roles) {
+      for (const role of assignableRoles) {
         if (role.min > 0) {
           for (let i = 0; i < role.min; i++) {
             if (currentMemberIndex < shuffled.length) {
@@ -127,7 +139,7 @@ function regenerateGroupsAndRoles() {
   
       // Second pass: Fill remaining roles up to max
       const remainingMembers = shuffled.slice(currentMemberIndex);
-      const remainingRoles = roles.filter(role => role.max > role.min);
+      const remainingRoles = assignableRoles.filter(role => role.max > role.min);
       
       for (const member of remainingMembers) {
         // Find a role that hasn't reached its max
@@ -143,7 +155,7 @@ function regenerateGroupsAndRoles() {
           Logger.log(`Assigned additional role ${availableRole.name} (${availableRole.id}) to row ${member.row}`);
         } else {
           // If no role is available, assign as Team Member
-          const teamMemberRole = roles.find(r => r.name === "Team Member");
+          const teamMemberRole = assignableRoles.find(r => r.name === "Team Member");
           if (teamMemberRole) {
             sheet.getRange(member.row, roleIdx + 1).setValue(teamMemberRole.id);
             Logger.log(`Assigned Team Member role to row ${member.row}`);
@@ -151,17 +163,86 @@ function regenerateGroupsAndRoles() {
         }
         currentMemberIndex++;
       }
-  
-      // กำหนด EM เป็น AI
-      if (em) {
-        const aiRole = roles.find(r => r.name === "AI");
-        if (aiRole) {
-          sheet.getRange(em.row, roleIdx + 1).setValue(aiRole.id);
-          Logger.log(`Assigned AI role to EM at row ${em.row}`);
-        }
-      }
     }
   
     SpreadsheetApp.flush();
     Logger.log("บทบาทถูกกำหนดใหม่เรียบร้อยแล้ว");
+  }
+
+  function regenerateSuspectNames() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const playerSheet = ss.getSheetByName("Player");
+    const teamMissionSheet = ss.getSheetByName("Team-Mission");
+    
+    // Get all data
+    const playerData = playerSheet.getDataRange().getValues();
+    const teamMissionData = teamMissionSheet.getDataRange().getValues();
+    
+    // Get column indices
+    const playerHeaders = playerData[0];
+    const missionHeaders = teamMissionData[0];
+    
+    const nameIdx = playerHeaders.indexOf("Name");
+    const teamIdx = playerHeaders.indexOf("Team");
+    const roleIdx = playerHeaders.indexOf("Role");
+    const teamColIdx = missionHeaders.indexOf("Team");
+    
+    // Find indices for suspect columns
+    const suspectColumns = [];
+    for (let i = 1; i <= 4; i++) {
+      const idx = missionHeaders.indexOf(`se-sus-${i}`);
+      if (idx === -1) {
+        throw new Error(`Column se-sus-${i} not found in Team-Mission sheet`);
+      }
+      suspectColumns.push(idx);
+    }
+    
+    // Process each team
+    for (let teamRow = 1; teamRow < teamMissionData.length; teamRow++) {
+      const team = teamMissionData[teamRow][teamColIdx];
+      if (!team) continue;
+      
+      Logger.log(`Processing team ${team}`);
+      
+      // Get all team members
+      const teamMembers = playerData.slice(1) // Skip header
+        .filter(row => row[teamIdx] === team && row[roleIdx] !== 7 && row[roleIdx] !== 4); // Exclude AI role
+  
+      Logger.log(`Team members: ${JSON.stringify(teamMembers)}`);
+  
+      // Find Backdoor and Legacy Code members
+      const backdoor = teamMembers.find(member => member[roleIdx] === 1); // Assuming 1 is Backdoor role ID
+      const legacyCode = teamMembers.find(member => member[roleIdx] === 3); // Assuming 3 is Legacy Code role ID
+      
+      if (!backdoor || !legacyCode) {
+        Logger.log(`Missing required roles in team ${team}. Backdoor: ${!!backdoor}, Legacy Code: ${!!legacyCode}`);
+        continue;
+      }
+      
+      // Create suspect list starting with Backdoor and Legacy Code
+      const suspects = [backdoor[nameIdx], legacyCode[nameIdx]];
+      
+      // Get remaining members (excluding those already in suspects)
+      const remainingMembers = teamMembers
+        .filter(member => member[nameIdx] !== backdoor[nameIdx] && member[nameIdx] !== legacyCode[nameIdx]);
+      
+      // Shuffle remaining members and take 2
+      const additionalSuspects = remainingMembers
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 2)
+        .map(member => member[nameIdx]);
+      
+      // Combine and shuffle all suspects
+      const allSuspects = [...suspects, ...additionalSuspects].sort(() => Math.random() - 0.5);
+      
+      // Update Team-Mission sheet with suspects
+      for (let i = 0; i < suspectColumns.length; i++) {
+        teamMissionSheet.getRange(teamRow + 1, suspectColumns[i] + 1).setValue(allSuspects[i]);
+      }
+      
+      Logger.log(`Updated suspects for team ${team}: ${allSuspects.join(', ')}`);
+    }
+    
+    SpreadsheetApp.flush();
+    Logger.log("Suspect names generated for all Staff Engineers");
   }
