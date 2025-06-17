@@ -48,9 +48,9 @@ function setCachedData(key, value, hoursToExpire = 24) {
 }
 
 // Cookie handling functions
-function setCookie(name, value, days = 30) {
+function setCookie(name, value, hours = 24) {
   const d = new Date();
-  d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+  d.setTime(d.getTime() + (hours * 60 * 60 * 1000));
   const expires = "expires=" + d.toUTCString();
   document.cookie = name + "=" + value + ";" + expires + ";path=/";
 }
@@ -60,6 +60,27 @@ function getCookie(name) {
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop().split(';').shift();
   return '';
+}
+
+// Add user credential caching functions using cookies
+function cacheUserCredentials(name, pin) {
+  const credentials = JSON.stringify({ name, pin });
+  setCookie('cachedUser', credentials, 1); // Cache for 1 hour
+}
+
+function getCachedUserCredentials() {
+  const credentials = getCookie('cachedUser');
+  if (!credentials) return null;
+  try {
+    return JSON.parse(credentials);
+  } catch (err) {
+    console.error('Error parsing cached credentials:', err);
+    return null;
+  }
+}
+
+function clearUserCredentials() {
+  setCookie('cachedUser', '', -1); // Set expiry to past to delete the cookie
 }
 
 // Add rules popup functions
@@ -107,6 +128,43 @@ window.onload = async () => {
   
   let names = []; // Store all names
   let selectedName = ''; // Store currently selected name
+
+  // Check for cached credentials first
+  const cachedCredentials = getCachedUserCredentials();
+  if (cachedCredentials) {
+    console.log('Found cached credentials, attempting auto-login...');
+    // Set the name input value
+    nameInput.value = cachedCredentials.name;
+    selectedName = cachedCredentials.name;
+    
+    // Hide name selection initially
+    nameInput.style.display = 'none';
+    loadingText.style.display = 'flex';
+    loadingText.textContent = 'กำลังเข้าสู่ระบบอัตโนมัติ...';
+
+    try {
+      // Attempt to fetch role with cached credentials
+      const res = await fetch(`${API_URL}?name=${encodeURIComponent(cachedCredentials.name)}&pin=${cachedCredentials.pin}`);
+      const data = await res.json();
+
+      if (!data.error) {
+        // Cached credentials are valid, proceed with auto-login
+        console.log('Auto-login successful');
+        pinInput.value = cachedCredentials.pin;
+        await fetchRole();
+        return; // Exit early as we're already logged in
+      } else {
+        // Invalid cached credentials, clear them
+        console.log('Cached credentials invalid, clearing cache');
+        clearUserCredentials();
+      }
+    } catch (error) {
+      console.error('Error during auto-login:', error);
+      clearUserCredentials();
+    }
+  } else {
+    console.log('No cached credentials found, proceeding with manual login');
+  }
 
   // Add rules button after title
   const titleElement = document.querySelector('.text-2xl.sm\\:text-3xl');
@@ -431,8 +489,8 @@ async function fetchRole() {
       return;
     }
     
-    // Store PIN in localStorage after successful validation
-    localStorage.setItem('pin', pin);
+    // Cache user credentials after successful validation
+    cacheUserCredentials(name, pin);
     
     // Store current role and user info
     currentRole = data.roleData.name;
