@@ -288,26 +288,18 @@ window.onload = async () => {
     loadingText.textContent = 'กำลังเข้าสู่ระบบอัตโนมัติ...';
 
     try {
-      // Attempt to fetch role with cached credentials
-      const data = await apiRequest({
-        name: cachedCredentials.name,
-        pin: cachedCredentials.pin
-      });
-
-      if (!data.error) {
-        // Cached credentials are valid, proceed with auto-login
-        console.log('Auto-login successful');
-        pinInput.value = cachedCredentials.pin;
-        await fetchRole();
-        return; // Exit early as we're already logged in
-      } else {
-        // Invalid cached credentials, clear them
-        console.log('Cached credentials invalid, clearing cache');
-        clearUserCredentials();
-      }
+      // Set pin input value before calling fetchRole
+      pinInput.value = cachedCredentials.pin;
+      // Call fetchRole directly with the cached credentials
+      await fetchRole();
+      return; // Exit early as we're already logged in
     } catch (error) {
       console.error('Error during auto-login:', error);
       clearUserCredentials();
+      // Reset UI state
+      nameInput.style.display = 'block';
+      loadingText.style.display = 'none';
+      pinInput.value = '';
     }
   } else {
     console.log('No cached credentials found, proceeding with manual login');
