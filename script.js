@@ -8,6 +8,11 @@ let currentUser = '';
 let currentTeam = '';
 let voteModal = null;
 
+// Helper function to convert 1/0 to boolean
+function toBool(value) {
+  return value === 1;
+}
+
 // Add cache helper functions at the top
 function getCachedData(key) {
   try {
@@ -394,7 +399,6 @@ async function setupPin() {
 }
 
 async function fetchRole() {
-
   const button = document.getElementById("actionButton");
   const result = document.getElementById("result");
   const actionButtons = document.getElementById("actionButtons");
@@ -426,6 +430,9 @@ async function fetchRole() {
       if (pinError) pinError.classList.remove('hidden');
       return;
     }
+    
+    // Store PIN in localStorage after successful validation
+    localStorage.setItem('pin', pin);
     
     // Store current role and user info
     currentRole = data.roleData.name;
@@ -479,12 +486,12 @@ async function fetchRole() {
                     </div>
                     <button 
                       onclick="handleSpecialAction('team')" 
-                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!allowSubmitTeamMissionFlag ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
-                      ${!allowSubmitTeamMissionFlag ? 'disabled' : ''}
+                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!toBool(appConfig.allow_submit_team) ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
+                      ${!toBool(appConfig.allow_submit_team) ? 'disabled' : ''}
                     >
                       <div class="flex flex-col items-center">
                         <span>$ execute --submit-result --team-${data.team.name}</span>
-                        ${!allowSubmitTeamMissionFlag ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
+                        ${!toBool(appConfig.allow_submit_team) ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
                       </div>
                     </button>
                   </div>
@@ -539,7 +546,7 @@ async function fetchRole() {
                 ${currentUser ? `
                   <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
-                      <h2 class="text-2xl font-bold text-white">🎮 โหวตเพื่อ</h2>
+                      <h2 class="text-2xl font-bold text-white">🗳️ จับโจรกันจ้า</h2>
                       <span id="votingRoundInfo" class="text-sm font-medium ml-4"></span>
                     </div>
                     <button 
@@ -739,7 +746,6 @@ function renderRoleSpecificData(roleData) {
       `;
 
     case "backdoor_mission":
-      const isLeakEnabled = Boolean(appConfig.allow_submit_leak);
       return `
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
@@ -749,12 +755,12 @@ function renderRoleSpecificData(roleData) {
             <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
             <button 
               onclick="handleSpecialAction('leak')" 
-              class="w-full bg-red-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!isLeakEnabled ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
-              ${!isLeakEnabled ? 'disabled' : ''}
+              class="w-full bg-red-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!toBool(appConfig.allow_submit_leak) ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
+              ${!toBool(appConfig.allow_submit_leak) ? 'disabled' : ''}
             >
               <div class="flex flex-col items-center">
                 <span>$ leak --team-data</span>
-                ${!isLeakEnabled ? '<span class="text-xs opacity-75 mt-1">จะเปิดให้ leak ตอนกิจกรรมกลางคืน</span>' : ''}
+                ${!toBool(appConfig.allow_submit_leak) ? '<span class="text-xs opacity-75 mt-1">จะเปิดให้ leak ตอนกิจกรรมกลางคืน</span>' : ''}
               </div>
             </button>
           </div>
@@ -814,7 +820,7 @@ async function handleSpecialAction(actionType) {
       teamButton.classList.add('btn-loading');
       teamButton.disabled = true;
       
-      if (Boolean(appConfig.allow_submit_team) !== true) {
+      if (!toBool(appConfig.allow_submit_team)) {
         alert('This action is currently disabled by configuration.');
         return;
       }
@@ -953,7 +959,7 @@ async function handleSpecialAction(actionType) {
       alert('เกิดข้อผิดพลาด: ' + error.message);
     } finally {
       teamButton.classList.remove('btn-loading');
-      teamButton.disabled = Boolean(appConfig.allow_submit_team) !== true;
+      teamButton.disabled = !toBool(appConfig.allow_submit_team);
     }
     return;
   }
@@ -972,7 +978,7 @@ async function handleSpecialAction(actionType) {
       'vote': 'allow_vote'
     }[actionType];
 
-    if (Boolean(appConfig[actionKey]) !== true) {
+    if (!toBool(appConfig[actionKey])) {
       alert('This action is currently disabled by configuration.');
       return;
     }
@@ -1333,6 +1339,7 @@ function updateVoteResultsDisplay(results) {
 // Update the vote submission function
 async function submitVote(round) {
   const select = document.getElementById(`vote-${round}`);
+  const button = document.querySelector(`button[onclick="submitVote(${round})"]`);
   const votedFor = select.value;
   
   if (!votedFor) {
@@ -1341,6 +1348,19 @@ async function submitVote(round) {
   }
 
   try {
+    // Show loading state
+    const originalContent = button.innerHTML;
+    button.disabled = true;
+    select.disabled = true;
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>กำลังบันทึก...</span>
+      </div>
+    `;
+
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -1364,11 +1384,103 @@ async function submitVote(round) {
     // Update the vote results display with the returned data
     updateVoteResultsDisplay(result);
     
-    // Show success message
-    showMessage('บันทึกการโหวตเรียบร้อยแล้ว', 'success');
+    // Show success state
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span>บันทึกแล้ว!</span>
+      </div>
+    `;
+    button.classList.remove('bg-blue-600');
+    button.classList.add('bg-green-600');
+
+    // Show success popup
+    const popup = document.createElement('div');
+    popup.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50 p-4 animate-fade-in';
+    popup.innerHTML = `
+      <div class="bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
+        <div class="text-center">
+          <div class="flex justify-center mb-4">
+            <div class="rounded-full bg-green-600/20 p-3">
+              <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+          </div>
+          <h3 class="text-xl font-semibold text-white mb-2">โหวตสำเร็จ! 🎉</h3>
+          <p class="text-gray-300 mb-4">ปรักปรำ <span class="text-yellow-400 font-medium">${votedFor}</span> เรียบร้อย</p>
+          <p class="text-sm text-gray-400">หน้าต่างนี้จะปิดอัตโนมัติใน <span class="countdown">3</span> วินาที</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(popup);
+
+    // Add fade-in animation style
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fade-in {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.2s ease-out forwards;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Start countdown
+    let secondsLeft = 3;
+    const countdownEl = popup.querySelector('.countdown');
+    const countdownInterval = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft > 0) {
+        countdownEl.textContent = secondsLeft;
+      } else {
+        countdownEl.textContent = '0';
+      }
+    }, 1000);
+
+    // Remove popup and reset button after delay
+    setTimeout(() => {
+      popup.remove();
+      style.remove();
+      clearInterval(countdownInterval);
+      
+      // Reset button state
+      button.innerHTML = originalContent;
+      button.classList.remove('bg-green-600');
+      button.classList.add('bg-blue-600');
+      button.disabled = false;
+      select.disabled = false;
+    }, 3000);
     
   } catch (error) {
     console.error('Error submitting vote:', error);
-    showMessage(error.message || 'เกิดข้อผิดพลาดในการบันทึกการโหวต', 'error');
+    
+    // Show error state
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        <span>ผิดพลาด!</span>
+      </div>
+    `;
+    button.classList.remove('bg-blue-600');
+    button.classList.add('bg-red-600');
+
+    // Show error message
+    alert(error.message || 'เกิดข้อผิดพลาดในการบันทึกการโหวต');
+
+    // Reset button state after delay
+    setTimeout(() => {
+      button.innerHTML = originalContent;
+      button.classList.remove('bg-red-600');
+      button.classList.add('bg-blue-600');
+      button.disabled = false;
+      select.disabled = false;
+    }, 2000);
   }
 } 

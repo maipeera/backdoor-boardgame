@@ -486,24 +486,12 @@ function getConfiguration(sheet) {
     const key = row[keyIdx];
     let value = row[valueIdx];
     
-    // Handle vote end time values
-    if (key && key.startsWith('vote-') && key.endsWith('-endtime')) {
-      if (value) {
-        // Convert to ISO datetime string (YYYY-MM-DDThh:mm)
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-          value = date.toISOString().slice(0, 16); // Format: YYYY-MM-DDThh:mm
-        }
-      }
-    }
     // Convert boolean values (handle both string and numeric formats)
-    else if (value === 'true' || value === 'false') {
+    if (value === 'true' || value === 'false') {
       value = value === 'true';
-    } else if (value === 1 || value === 0) {
-      value = value === 1;
     }
-    // Convert other numeric strings to numbers
-    else if (!isNaN(value)) {
+    // Convert other numeric strings to numbers, but preserve actual numbers
+    else if (!isNaN(value) && typeof value !== 'number') {
       value = Number(value);
     }
     
