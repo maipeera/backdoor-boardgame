@@ -624,46 +624,7 @@ async function fetchRole() {
           <div id="contentContainer" class="pb-24"> <!-- Increased padding at bottom for nav bar -->
             <!-- Team Tab Content -->
             <div id="teamContent" class="space-y-4">
-              ${data.team.mission ? `
-                <div class="mb-6">
-                  <div class="flex items-center gap-2 mb-3">
-                    <span class="text-purple-400">&gt;</span>
-                    <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team.name}</h3>
-                  </div>
-                  <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
-                    <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
-                    <div class="border-t border-gray-700 pt-4">
-                      <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.team.mission}</p>
-                    </div>
-                    <button 
-                      onclick="handleSpecialAction('team')" 
-                      class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!toBool(appConfig.allow_submit_team) ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
-                      ${!toBool(appConfig.allow_submit_team) ? 'disabled' : ''}
-                    >
-                      <div class="flex flex-col items-center">
-                        <span>$ execute --submit-result --team-${data.team.name}</span>
-                        ${!toBool(appConfig.allow_submit_team) ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                ${data.team.members ? `
-                  <div class="mb-6">
-                    <div class="flex items-center gap-2 mb-3">
-                      <span class="text-purple-400">&gt;</span>
-                      <h3 class="text-lg font-semibold text-white">สมาชิกในทีม ${data.team.name}</h3>
-                    </div>
-                    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                      <div class="grid grid-cols-2 gap-2">
-                        ${data.team.members.map(member => `
-                          <div class="text-white">${member}</div>
-                        `).join('')}
-                      </div>
-                    </div>
-                  </div>
-                ` : ''}
-              ` : ''}
+              ${updateTeamMissionHTML(data)}
             </div>
 
             <!-- Role Tab Content -->
@@ -945,6 +906,169 @@ function renderRoleSpecificData(roleData) {
     default:
       return '';
   }
+}
+
+// Add gallery view functionality
+async function showGallery(teamName) {
+  try {
+    // Create gallery modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+      <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center p-4 border-b border-gray-700">
+          <h3 class="text-lg font-medium text-white">Team ${teamName} Gallery</h3>
+          <button 
+            onclick="this.closest('.fixed').remove()" 
+            class="text-gray-400 hover:text-white transition-colors"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto p-4">
+          <div id="galleryLoading" class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+            <p class="text-gray-400 mt-2">กำลังโหลดรูปภาพ...</p>
+          </div>
+          <div id="galleryGrid" class="hidden grid grid-cols-2 md:grid-cols-3 gap-4">
+            <!-- Images will be populated here -->
+          </div>
+          <div id="galleryEmpty" class="hidden text-center py-8">
+            <p class="text-gray-400">ยังไม่มีรูปภาพที่ส่งเข้ามา</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+
+    // Fetch gallery data
+    const res = await fetch(`${API_URL}?gallery=true&team=${encodeURIComponent(teamName)}`);
+    const data = await res.json();
+
+    const loadingEl = document.getElementById('galleryLoading');
+    const gridEl = document.getElementById('galleryGrid');
+    const emptyEl = document.getElementById('galleryEmpty');
+
+    if (data && data.images && data.images.length > 0) {
+      // Create image grid
+      gridEl.innerHTML = data.images.map(img => `
+        <div class="relative group">
+          <img 
+            src="${img.url}" 
+            alt="Team submission" 
+            class="w-full h-48 object-cover rounded-lg cursor-pointer"
+            onclick="showFullImage('${img.url}', '${img.submitter}')"
+          />
+          <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 to-transparent p-2 rounded-b-lg">
+            <p class="text-white text-sm">Submitted by: ${img.submitter}</p>
+            <p class="text-gray-300 text-xs">${new Date(img.timestamp).toLocaleString()}</p>
+          </div>
+        </div>
+      `).join('');
+      
+      gridEl.classList.remove('hidden');
+      loadingEl.classList.add('hidden');
+    } else {
+      emptyEl.classList.remove('hidden');
+      loadingEl.classList.add('hidden');
+    }
+  } catch (error) {
+    console.error('Error loading gallery:', error);
+    const loadingEl = document.getElementById('galleryLoading');
+    if (loadingEl) {
+      loadingEl.innerHTML = `
+        <svg class="w-8 h-8 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <p class="text-red-500 mt-2">เกิดข้อผิดพลาดในการโหลดรูปภาพ</p>
+      `;
+    }
+  }
+}
+
+// Function to show full-size image
+function showFullImage(url, submitter) {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-gray-900/90 flex items-center justify-center z-50 p-4';
+  modal.innerHTML = `
+    <div class="relative max-w-5xl w-full">
+      <button 
+        onclick="this.closest('.fixed').remove()" 
+        class="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+      <img 
+        src="${url}" 
+        alt="Full size submission by ${submitter}" 
+        class="w-full h-auto rounded-lg shadow-xl"
+      />
+      <p class="text-white text-center mt-4">Submitted by: ${submitter}</p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// Update the team mission section in the original HTML to include the gallery button
+function updateTeamMissionHTML(data) {
+  return `
+    ${data.team.mission ? `
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-purple-400">&gt;</span>
+          <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team.name}</h3>
+        </div>
+        <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+          <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
+          <div class="border-t border-gray-700 pt-4">
+            <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.team.mission}</p>
+          </div>
+          <div class="space-y-2">
+            <button 
+              onclick="handleSpecialAction('team')" 
+              class="w-full bg-blue-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!toBool(appConfig.allow_submit_team) ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
+              ${!toBool(appConfig.allow_submit_team) ? 'disabled' : ''}
+            >
+              <div class="flex flex-col items-center">
+                <span>$ execute --submit-result --team-${data.team.name}</span>
+                ${!toBool(appConfig.allow_submit_team) ? '<span class="text-xs opacity-75 mt-1">จะเปิดใช้วันไป outing นะ</span>' : ''}
+              </div>
+            </button>
+            
+            <button 
+              onclick="showGallery('${data.team.name}')" 
+              class="w-full bg-purple-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+            >
+              <div class="flex flex-col items-center">
+                <span>$ view --team-gallery</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
+    ${data.team.members ? `
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-purple-400">&gt;</span>
+          <h3 class="text-lg font-semibold text-white">สมาชิกในทีม ${data.team.name}</h3>
+        </div>
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+          <div class="grid grid-cols-2 gap-2">
+            ${data.team.members.map(member => `
+              <div class="text-white">${member}</div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    ` : ''}
+  `;
 }
 
 async function handleSpecialAction(actionType) {

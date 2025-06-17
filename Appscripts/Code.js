@@ -61,6 +61,79 @@ function testVote() {
   Logger.log(result.getContent());
 }
 
+function testGallery() {
+  // Test with valid team
+  const fakeEvent = {
+    parameter: {
+      gallery: 'true',
+      team: 'A'
+    }
+  };
+  const result = doGet(fakeEvent);
+  Logger.log('Gallery test result for Team A:');
+  Logger.log(result.getContent());
+
+  // Test with invalid team
+  const fakeEventInvalid = {
+    parameter: {
+      gallery: 'true',
+      team: 'X'
+    }
+  };
+  const resultInvalid = doGet(fakeEventInvalid);
+  Logger.log('Gallery test result for invalid Team X:');
+  Logger.log(resultInvalid.getContent());
+
+  // Test with missing team parameter
+  const fakeEventMissing = {
+    parameter: {
+      gallery: 'true'
+    }
+  };
+  const resultMissing = doGet(fakeEventMissing);
+  Logger.log('Gallery test result with missing team:');
+  Logger.log(resultMissing.getContent());
+
+  // Direct test of getTeamSubmissions function
+  Logger.log('Direct test of getTeamSubmissions:');
+  const submissions = getTeamSubmissions('A');
+  Logger.log('Number of submissions found:', submissions.length);
+  if (submissions.length > 0) {
+    Logger.log('Sample submission:', submissions[0]);
+  }
+}
+
+// Add this after the test function
+function testCreateSubmission() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const team = 'A';
+  const sheetName = `team-submission-${team.toLowerCase()}`;
+  
+  // Create test sheet if it doesn't exist
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.appendRow(['Timestamp', 'Uploader', 'URL']);
+  }
+
+  // Add test submission
+  const testData = [
+    new Date(),
+    'Test User',
+    'https://drive.google.com/test-url'
+  ];
+  sheet.appendRow(testData);
+
+  // Test retrieving the submission
+  const submissions = getTeamSubmissions(team);
+  Logger.log('Test submission result:');
+  Logger.log(submissions);
+
+  // Clean up test data (optional - uncomment if you want to remove test data)
+  // const lastRow = sheet.getLastRow();
+  // sheet.deleteRow(lastRow);
+}
+
 // Add team drive folder IDs
 const TEAM_DRIVE_FOLDERS = {
   'A': '1evxBZUqb0J1xlVirLq5cbWmwSqBG5iG6',
@@ -103,6 +176,21 @@ function doGet(e) {
   try {
     // Get parameters
     const params = e.parameter;
+
+    // Handle gallery request
+    if (params.gallery === 'true') {
+      const team = params.team;
+      if (!team) {
+        return output.setContent(JSON.stringify({
+          error: 'Team parameter is required'
+        }));
+      }
+      
+      const submissions = getTeamSubmissions(team);
+      return output.setContent(JSON.stringify({
+        images: submissions
+      }));
+    }
 
     // Handle get_names request
     if (params.get_names === 'true') {
@@ -758,5 +846,33 @@ function isValidDateTime(dateTimeStr) {
   // Try to create a Date object
   const date = new Date(dateTimeStr);
   return date instanceof Date && !isNaN(date);
+}
+
+function getTeamSubmissions(team) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetName = `team-submission-${team.toLowerCase()}`;
+    const sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) {
+      return [];
+    }
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) { // Only header row or empty
+      return [];
+    }
+
+    // Skip header row and map data to submission objects
+    return data.slice(1).map(row => ({
+      timestamp: row[0].toISOString(), // Convert Date to ISO string
+      submitter: row[1],
+      url: row[2]
+    })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
+
+  } catch (error) {
+    Logger.log('Error getting team submissions:', error);
+    return [];
+  }
 }
 
