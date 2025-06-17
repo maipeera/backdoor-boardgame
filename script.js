@@ -999,10 +999,10 @@ async function showGallery(teamName) {
       gridEl.innerHTML = data.images.map(img => `
         <div class="relative group">
           <img 
-            src="${img.url}" 
+            src="${img.thumbnailUrl}" 
             alt="Team submission" 
-            class="w-full h-48 object-cover rounded-lg cursor-pointer"
-            onclick="showFullImage('${img.url}', '${img.submitter}')"
+            class="w-full h-48 object-cover rounded-lg cursor-pointer transition-transform duration-200 group-hover:scale-[1.02]"
+            onclick="showFullImage('${img.thumbnailUrl}', '${img.url}', '${img.submitter}')"
           />
           <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 to-transparent p-2 rounded-b-lg">
             <p class="text-white text-sm">Submitted by: ${img.submitter}</p>
@@ -1032,24 +1032,45 @@ async function showGallery(teamName) {
 }
 
 // Function to show full-size image
-function showFullImage(url, submitter) {
+function showFullImage(thumbnailUrl, fullUrl, submitter) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-gray-900/90 flex items-center justify-center z-50 p-4';
+  
+  // Create the modal content with loading state
   modal.innerHTML = `
     <div class="relative max-w-5xl w-full">
       <button 
         onclick="this.closest('.fixed').remove()" 
-        class="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+        class="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-20"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
         </svg>
       </button>
-      <img 
-        src="${url}" 
-        alt="Full size submission by ${submitter}" 
-        class="w-full h-auto rounded-lg shadow-xl"
-      />
+      
+      <div class="relative">
+        <!-- Thumbnail image (shown immediately) -->
+        <img 
+          src="${thumbnailUrl}" 
+          alt="Loading submission by ${submitter}" 
+          class="w-full h-auto rounded-lg shadow-xl transition-opacity duration-300"
+          style="filter: blur(2px);"
+        />
+        
+        <!-- Loading spinner overlay -->
+        <div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg loading-overlay">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+        </div>
+        
+        <!-- Full size image (loaded in background) -->
+        <img 
+          src="${fullUrl}" 
+          alt="Full size submission by ${submitter}" 
+          class="w-full h-auto rounded-lg shadow-xl absolute top-0 left-0 opacity-0 transition-opacity duration-300"
+          onload="this.classList.add('opacity-100'); this.classList.remove('absolute'); this.previousElementSibling.previousElementSibling.remove(); this.previousElementSibling.remove();"
+          onerror="this.previousElementSibling.previousElementSibling.style.filter = 'none'; this.previousElementSibling.innerHTML = '<div class=\'text-red-500 text-center\'><svg class=\'w-8 h-8 mx-auto mb-2\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z\'></path></svg>Failed to load full image</div>'; this.remove();"
+        />
+      </div>
       <p class="text-white text-center mt-4">Submitted by: ${submitter}</p>
     </div>
   `;

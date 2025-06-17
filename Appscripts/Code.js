@@ -864,11 +864,38 @@ function getTeamSubmissions(team) {
     }
 
     // Skip header row and map data to submission objects
-    return data.slice(1).map(row => ({
-      timestamp: row[0].toISOString(), // Convert Date to ISO string
-      submitter: row[1],
-      url: row[2]
-    })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
+    return data.slice(1)
+      .map(row => {
+        try {
+          const driveUrl = row[2];
+          // Extract file ID from Google Drive URL
+          const fileId = driveUrl.match(/[-\w]{25,}/);
+          if (!fileId) return null;
+          
+          // Get the file to check if it's an image
+          const file = DriveApp.getFileById(fileId[0]);
+          const mimeType = file.getMimeType();
+          
+          // Only process image files
+          if (!mimeType.startsWith('image/')) return null;
+          
+          // Generate both full and thumbnail URLs
+          const viewableUrl = `https://drive.google.com/uc?export=view&id=${fileId[0]}`;
+          const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId[0]}`;
+          
+          return {
+            timestamp: row[0].toISOString(), // Convert Date to ISO string
+            submitter: row[1],
+            url: viewableUrl,
+            thumbnailUrl: thumbnailUrl
+          };
+        } catch (err) {
+          Logger.log('Error processing submission:', err);
+          return null;
+        }
+      })
+      .filter(submission => submission !== null) // Remove failed conversions
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
 
   } catch (error) {
     Logger.log('Error getting team submissions:', error);
