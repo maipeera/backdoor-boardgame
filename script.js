@@ -49,30 +49,122 @@ function setCachedData(key, value, hoursToExpire = 24) {
 
 // Cookie handling functions
 function setCookie(name, value, hours = 24) {
-  const d = new Date();
-  d.setTime(d.getTime() + (hours * 60 * 60 * 1000));
-  const expires = "expires=" + d.toUTCString();
-  document.cookie = name + "=" + value + ";" + expires + ";path=/";
+  try {
+    // Convert hours to seconds for max-age
+    const maxAge = hours * 60 * 60;
+    // Add SameSite attribute and make sure cookie works in most contexts
+    const cookie = `${name}=${value};max-age=${maxAge};path=/;SameSite=Lax`;
+    document.cookie = cookie;
+    
+    // Verify cookie was set
+    const savedValue = getCookie(name);
+    console.log('Setting cookie:', {
+      name,
+      value,
+      maxAge,
+      cookie,
+      'Saved successfully': savedValue === value
+    });
+    
+    return savedValue === value;
+  } catch (err) {
+    console.error('Error setting cookie:', err);
+    return false;
+  }
 }
 
 function getCookie(name) {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(';').shift();
-  return '';
+  try {
+    const value = `; ${document.cookie}`;
+    console.log('All cookies:', document.cookie);
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+      const cookieValue = parts.pop().split(';').shift();
+      console.log('Found cookie:', { name, value: cookieValue });
+      return cookieValue;
+    }
+    console.log('Cookie not found:', name);
+    return '';
+  } catch (err) {
+    console.error('Error getting cookie:', err);
+    return '';
+  }
+}
+
+// Add clear cookie functions
+function clearCookie(name) {
+  try {
+    // Set max-age to 0 to immediately expire the cookie
+    document.cookie = `${name}=;max-age=0;path=/;SameSite=Lax`;
+    
+    // Verify cookie was cleared
+    const cleared = !getCookie(name);
+    console.log('Clearing cookie:', { name, 'Cleared successfully': cleared });
+    
+    return cleared;
+  } catch (err) {
+    console.error('Error clearing cookie:', err);
+    return false;
+  }
+}
+
+function clearAllCookies() {
+  try {
+    // Get all cookies
+    const cookies = document.cookie.split(';');
+    console.log('Clearing all cookies:', cookies);
+    
+    // Clear each cookie
+    let allCleared = true;
+    for (let cookie of cookies) {
+      const name = cookie.split('=')[0].trim();
+      const cleared = clearCookie(name);
+      if (!cleared) allCleared = false;
+    }
+    
+    console.log('All cookies cleared:', allCleared);
+    return allCleared;
+  } catch (err) {
+    console.error('Error clearing all cookies:', err);
+    return false;
+  }
 }
 
 // Add user credential caching functions using cookies
 function cacheUserCredentials(name, pin) {
-  const credentials = JSON.stringify({ name, pin });
-  setCookie('cachedUser', credentials, 1); // Cache for 1 hour
+  try {
+    const credentials = JSON.stringify({ name, pin });
+    console.log('Attempting to cache credentials for:', name);
+    
+    const success = setCookie('cachedUser', credentials, 1); // Cache for 1 hour
+    if (success) {
+      console.log('Successfully cached user credentials');
+    } else {
+      console.warn('Failed to cache user credentials');
+    }
+    
+    // Verify the credentials were cached
+    const cached = getCachedUserCredentials();
+    console.log('Verification - Cached credentials:', cached);
+    
+    return success;
+  } catch (err) {
+    console.error('Error caching credentials:', err);
+    return false;
+  }
 }
 
 function getCachedUserCredentials() {
-  const credentials = getCookie('cachedUser');
-  if (!credentials) return null;
   try {
-    return JSON.parse(credentials);
+    const credentials = getCookie('cachedUser');
+    if (!credentials) {
+      console.log('No cached credentials found');
+      return null;
+    }
+    
+    const parsed = JSON.parse(credentials);
+    console.log('Retrieved cached credentials for:', parsed.name);
+    return parsed;
   } catch (err) {
     console.error('Error parsing cached credentials:', err);
     return null;
@@ -80,7 +172,8 @@ function getCachedUserCredentials() {
 }
 
 function clearUserCredentials() {
-  setCookie('cachedUser', '', -1); // Set expiry to past to delete the cookie
+  console.log('Clearing user credentials');
+  return clearCookie('cachedUser');
 }
 
 // Add rules popup functions

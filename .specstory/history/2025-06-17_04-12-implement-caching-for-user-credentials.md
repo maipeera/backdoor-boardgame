@@ -414,3 +414,198 @@ Remember that localStorage has size limits (usually 5-10MB), so be cautious when
 
 ---
 
+_**User**_
+
+also add clear cookie function
+
+---
+
+_**Assistant**_
+
+I'll add a function to clear all cookies or specific cookies. This will be useful alongside our existing cookie management functions.
+
+---
+
+```diff
+    return '';
+  }
++ 
++ // Add clear cookie functions
++ function clearCookie(name) {
++   // Set expiration to past date to delete the cookie
++   document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
++ }
++ 
++ function clearAllCookies() {
++   // Get all cookies
++   const cookies = document.cookie.split(';');
++   
++   // Delete each cookie
++   for (let cookie of cookies) {
++     const name = cookie.split('=')[0].trim();
++     clearCookie(name);
++   }
++   
++   console.log('All cookies cleared');
++ }
++ 
++ // Example usage:
++ // clearCookie('specificCookieName'); // Clear specific cookie
++ // clearAllCookies(); // Clear all cookies
+  
+  // Add user credential caching functions using cookies
+```
+
+---
+
+I've added two new functions:
+
+1. `clearCookie(name)`: Clears a specific cookie by name
+   ```javascript
+   clearCookie('cachedUser'); // Clear just the user credentials cookie
+   ```
+
+2. `clearAllCookies()`: Clears all cookies in the current domain
+   ```javascript
+   clearAllCookies(); // Clear all cookies
+   ```
+
+These functions work by:
+- Setting the cookie's expiration date to a past date (Jan 1, 1970)
+- Maintaining the same path as when the cookie was set
+- For clearing all cookies, it gets the list of all cookies and clears each one
+
+You can use these functions when:
+- Logging out (clear user credentials)
+- Resetting the application state
+- Debugging cookie-related issues
+- Implementing a "clear all data" feature
+
+For example, to clear both the cached user credentials and any other cookies:
+```javascript
+clearCookie('cachedUser'); // Clear just the user credentials
+// or
+clearAllCookies(); // Clear everything
+```
+
+The functions are simple to use and will help manage cookie cleanup in your application.
+
+---
+
+_**User**_
+
+can we just delete cookie instead of set expired date?
+
+---
+
+_**Assistant**_
+
+No, we cannot directly "delete" cookies using JavaScript. The only way to remove a cookie is to make it expire. This is because of how cookies work in web browsers:
+
+1. There is no direct "delete" or "remove" API for cookies in JavaScript
+2. The only way to effectively remove a cookie is to:
+   - Set its expiration date to a past date
+   - OR set its expiration to a negative value
+   - OR set its max-age to 0 or negative
+
+However, we can make our code cleaner by using a more modern approach with the `max-age` attribute instead of the expiration date. This is considered a better practice:
+
+---
+
+```diff
+  // Cookie handling functions
+  function setCookie(name, value, hours = 24) {
+-   const d = new Date();
+-   d.setTime(d.getTime() + (hours * 60 * 60 * 1000));
+-   const expires = "expires=" + d.toUTCString();
+-   document.cookie = name + "=" + value + ";" + expires + ";path=/";
++   // Convert hours to seconds for max-age
++   const maxAge = hours * 60 * 60;
++   document.cookie = `${name}=${value};max-age=${maxAge};path=/`;
+  }
+  
+```
+
+```diff
+  // Add clear cookie functions
+  function clearCookie(name) {
+-   // Set expiration to past date to delete the cookie
+-   document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
++   // Set max-age to 0 to immediately expire the cookie
++   document.cookie = `${name}=;max-age=0;path=/`;
+  }
+  
+```
+
+```diff
+    const cookies = document.cookie.split(';');
+    
+-   // Delete each cookie
++   // Clear each cookie
+    for (let cookie of cookies) {
+      const name = cookie.split('=')[0].trim();
+```
+
+---
+
+The changes I made:
+
+1. Changed `setCookie` to use `max-age` instead of `expires`
+   - `max-age` is specified in seconds
+   - It's more precise and easier to work with than date calculations
+   - It's relative to the current time, making it more reliable
+
+2. Changed `clearCookie` to use `max-age=0` instead of setting an expired date
+   - This immediately invalidates the cookie
+   - It's cleaner and more modern
+   - It works the same way but is more straightforward
+
+3. Used template literals (`` ` ``) for better string formatting
+
+The functionality remains exactly the same, but the code is:
+- More modern
+- More maintainable
+- More precise
+- Easier to understand
+
+This approach is better because:
+1. `max-age` is more widely supported in modern browsers
+2. It avoids potential timezone issues that can occur with `expires`
+3. It's more intuitive (0 means expire now, positive number means keep for that many seconds)
+4. It's less prone to errors since we don't need to manipulate Date objects
+
+The usage remains the same:
+```javascript
+setCookie('myCookie', 'value', 1); // Set cookie for 1 hour
+clearCookie('myCookie');           // Clear the cookie
+clearAllCookies();                 // Clear all cookies
+```
+
+---
+
+_**User**_
+
+seem like current setting cookie does not work, it does not show up in cookie storage.
+
+---
+
+_**Assistant**_
+
+Let's debug the cookie setting issue. There are a few common reasons why cookies might not be saved:
+
+1. SameSite attribute might be needed
+2. Domain might need to be specified
+3. We should check if the cookie is actually being set
+
+Let's modify the cookie functions to be more robust and add some debugging:
+
+---
+
+
+
+---
+
+
+
+---
+
