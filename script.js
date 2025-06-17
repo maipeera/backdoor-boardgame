@@ -162,21 +162,27 @@ function clearAllCookies() {
 // Add user credential caching functions using cookies
 function cacheUserCredentials(name, pin) {
   try {
-    const credentials = JSON.stringify({ name, pin });
+    const credentials = { name, pin };
     console.log('Attempting to cache credentials for:', name);
     
-    const success = setCookie('cachedUser', credentials, 1); // Cache for 1 hour
-    if (success) {
-      console.log('Successfully cached user credentials');
+    // Cache in cookie
+    const cookieSuccess = setCookie('cachedUser', JSON.stringify(credentials), 1); // Cache for 1 hour
+    
+    // Cache in localStorage
+    setCachedData('cachedUser', credentials, 1); // Cache for 1 hour
+    
+    // Log results
+    if (cookieSuccess) {
+      console.log('Successfully cached user credentials in cookie');
     } else {
-      console.warn('Failed to cache user credentials');
+      console.warn('Failed to cache user credentials in cookie');
     }
     
     // Verify the credentials were cached
     const cached = getCachedUserCredentials();
     console.log('Verification - Cached credentials:', cached);
     
-    return success;
+    return cookieSuccess;
   } catch (err) {
     console.error('Error caching credentials:', err);
     return false;
@@ -185,15 +191,23 @@ function cacheUserCredentials(name, pin) {
 
 function getCachedUserCredentials() {
   try {
-    const credentials = getCookie('cachedUser');
-    if (!credentials) {
-      console.log('No cached credentials found');
-      return null;
+    // First try to get credentials from cookie
+    const cookieCredentials = getCookie('cachedUser');
+    if (cookieCredentials) {
+      const parsed = JSON.parse(cookieCredentials);
+      console.log('Retrieved cached credentials from cookie for:', parsed.name);
+      return parsed;
     }
     
-    const parsed = JSON.parse(credentials);
-    console.log('Retrieved cached credentials for:', parsed.name);
-    return parsed;
+    // If no cookie found, try localStorage
+    const localStorageCredentials = getCachedData('cachedUser');
+    if (localStorageCredentials) {
+      console.log('Retrieved cached credentials from localStorage for:', localStorageCredentials.name);
+      return localStorageCredentials;
+    }
+    
+    console.log('No cached credentials found in cookie or localStorage');
+    return null;
   } catch (err) {
     console.error('Error parsing cached credentials:', err);
     return null;
@@ -201,8 +215,9 @@ function getCachedUserCredentials() {
 }
 
 function clearUserCredentials() {
-  console.log('Clearing user credentials');
-  return clearCookie('cachedUser');
+  console.log('Clearing user credentials from cookie and localStorage');
+  localStorage.removeItem('cachedUser'); // Clear from localStorage
+  return clearCookie('cachedUser'); // Clear from cookie
 }
 
 // Add rules popup functions
@@ -238,6 +253,14 @@ function showRules() {
 }
 
 window.onload = async () => {
+  // Always fetch config first
+  appConfig = await apiRequest({ get_config: true });
+  console.log('Loaded configuration:', appConfig);
+  console.log('allow_vote value:', appConfig.allow_vote, 'type:', typeof appConfig.allow_vote);
+  if (appConfig.error) {
+    console.error('Configuration error:', appConfig.error);
+  }
+
   const nameInput = document.getElementById("nameInput");
   const loadingText = document.getElementById("loadingText");
   const pinLoginContainer = document.getElementById("pinLoginContainer");
@@ -338,16 +361,6 @@ window.onload = async () => {
     loadingText.textContent = 'กำลังโหลดรายชื่อผู้ใช้งาน รอแป๊ปปป 🚅';
     loadingText.style.display = 'flex';
     nameInput.style.display = 'none';
-
-    // Load configuration first
-    appConfig = await apiRequest({ get_config: true });
-    
-    console.log('Loaded configuration:', appConfig);
-    console.log('allow_vote value:', appConfig.allow_vote, 'type:', typeof appConfig.allow_vote);
-    
-    if (appConfig.error) {
-      console.error('Configuration error:', appConfig.error);
-    }
 
     // Try to get cached names first
     const cachedNames = getCachedData('userNames');
@@ -459,7 +472,8 @@ window.onload = async () => {
       // Disable input while checking
       nameInput.disabled = true;
       
-      localStorage.setItem('name', name);
+      // Cache the name
+      setCachedData('name', name);
       
       try {
         // Check if PIN needs setup
@@ -617,27 +631,26 @@ async function fetchRole() {
       return;
     }
     
-    // Cache user credentials after successful validation
+    // Cache user credentials and other data
     cacheUserCredentials(name, pin);
+    setCachedData('currentUserId', currentUser);
     
     // Store current role and user info
     currentRole = data.roleData.name;
     currentUser = name;
     currentTeam = data.team.name;
 
-    // Store team members, AI members, and voting info in localStorage
+    // Store team members and AI members in cache
     if (data.team.members) {
       const teamMembersList = data.team.members.map(name => ({
         id: name,
         name: name
       }));
-      localStorage.setItem('currentUserId', currentUser);
-      setCachedData('teamMembers', teamMembersList, 24 * 60 * 60 * 1000);
+      setCachedData('teamMembers', teamMembersList);
       
       if (data.team.ai && Array.isArray(data.team.ai)) {
-        setCachedData('aiMembers', data.team.ai, 24 * 60 * 60 * 1000);
+        setCachedData('aiMembers', data.team.ai);
       }
-
     }
     
     // Hide name selection, PIN input sections, and instruction text
@@ -646,7 +659,7 @@ async function fetchRole() {
     if (instructionText) instructionText.classList.add('hidden');
     
     if (pinError) pinError.classList.add('hidden');
-
+    
     if (result) {
       result.classList.remove('hidden');
       
@@ -1378,7 +1391,7 @@ async function submitLeak(button) {
 async function refreshNamesList() {
   try {
     // Clear existing cache
-    localStorage.removeItem('userNames');
+    setCachedData('userNames', null);
     
     // Fetch fresh data
     const freshNames = await apiRequest({ list: true });
@@ -1468,17 +1481,6 @@ async function refreshConfig() {
   try {
     const data = await apiRequest({ get_config: true });
     console.log('Config data received:', data);
-
-    // Update active voting round for Mai
-    const name = localStorage.getItem('name');
-    const adminControls = document.getElementById('adminControls');
-    const activeVotingRound = document.getElementById('activeVotingRound');
-    
-    if (name === 'Mai' && adminControls && activeVotingRound) {
-      adminControls.classList.remove('hidden');
-      const round = parseInt(data.active_voting_round) || -1;
-      activeVotingRound.textContent = round === -1 ? 'ไม่มี' : `รอบที่ ${round}`;
-    }
 
   } catch (error) {
     console.error('Error refreshing config:', error);
@@ -1655,6 +1657,12 @@ async function submitVote(round) {
       </div>
     `;
 
+    // Get cached credentials
+    const cachedCredentials = getCachedUserCredentials();
+    if (!cachedCredentials) {
+      throw new Error('No cached credentials found. Please login again.');
+    }
+
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -1665,7 +1673,7 @@ async function submitVote(round) {
         voterId: currentUser,
         votedFor: votedFor,
         round: round.toString(),
-        pin: localStorage.getItem('pin')
+        pin: cachedCredentials.pin
       })
     });
 
