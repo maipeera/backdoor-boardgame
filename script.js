@@ -1,6 +1,35 @@
 // Get API URL from config
 const API_URL = ENV.API_URL;
 
+/**
+ * Makes an API request to the backend
+ * @param {Object} params - Query parameters for the API request
+ * @returns {Promise<any>} The JSON response from the API
+ */
+async function apiRequest(params = {}) {
+  try {
+    // Convert params object to URL search params
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, value);
+      }
+    });
+
+    const url = `${API_URL}?${searchParams.toString()}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API request failed:', error);
+    throw error;
+  }
+}
+
 let currentMode = 'login'; // 'login' or 'setup'
 let currentRole = ''; // Store current user's role
 let appConfig = {}; // Store application configuration
@@ -237,8 +266,10 @@ window.onload = async () => {
 
     try {
       // Attempt to fetch role with cached credentials
-      const res = await fetch(`${API_URL}?name=${encodeURIComponent(cachedCredentials.name)}&pin=${cachedCredentials.pin}`);
-      const data = await res.json();
+      const data = await apiRequest({
+        name: cachedCredentials.name,
+        pin: cachedCredentials.pin
+      });
 
       if (!data.error) {
         // Cached credentials are valid, proceed with auto-login
@@ -309,8 +340,7 @@ window.onload = async () => {
     nameInput.style.display = 'none';
 
     // Load configuration first
-    const configRes = await fetch(`${API_URL}?get_config=true`);
-    appConfig = await configRes.json();
+    appConfig = await apiRequest({ get_config: true });
     
     console.log('Loaded configuration:', appConfig);
     console.log('allow_vote value:', appConfig.allow_vote, 'type:', typeof appConfig.allow_vote);
@@ -336,8 +366,7 @@ window.onload = async () => {
     } else {
       // Fetch fresh names if no cache
       try {
-        const res = await fetch(`${API_URL}?list=true`);
-        names = await res.json();
+        names = await apiRequest({ list: true });
         
         // Cache the names
         setCachedData('userNames', names);
@@ -434,10 +463,12 @@ window.onload = async () => {
       
       try {
         // Check if PIN needs setup
-        const checkRes = await fetch(`${API_URL}?check_pin=true&name=${encodeURIComponent(name)}`);
-        const checkData = await checkRes.json();
+        const data = await apiRequest({
+          check_pin: true,
+          name: name
+        });
 
-        if (checkData.needs_setup) {
+        if (data.needs_setup) {
           currentMode = 'setup';
           pinSetupContainer.classList.remove('hidden');
           actionButton.textContent = '$ execute --setup-pin';
@@ -526,8 +557,11 @@ async function setupPin() {
     button.classList.add("btn-loading");
     button.disabled = true;
 
-    const res = await fetch(`${API_URL}?setup_pin=true&name=${encodeURIComponent(name)}&pin=${newPin}`);
-    const data = await res.json();
+    const data = await apiRequest({
+      setup_pin: true,
+      name: name,
+      pin: newPin
+    });
 
     if (data.success) {
       // Switch to login mode
@@ -573,9 +607,10 @@ async function fetchRole() {
     }
 
     // Fetch role with PIN validation
-    const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}&pin=${pin}`);
-    const text = await res.text();
-    const data = JSON.parse(text);
+    const data = await apiRequest({
+      name: name,
+      pin: pin
+    });
 
     if (data.error) {
       if (pinError) pinError.classList.remove('hidden');
@@ -945,8 +980,10 @@ async function showGallery(teamName) {
     document.body.appendChild(modal);
 
     // Fetch gallery data
-    const res = await fetch(`${API_URL}?gallery=true&team=${encodeURIComponent(teamName)}`);
-    const data = await res.json();
+    const data = await apiRequest({
+      gallery: true,
+      team: teamName
+    });
 
     const loadingEl = document.getElementById('galleryLoading');
     const gridEl = document.getElementById('galleryGrid');
@@ -1292,20 +1329,13 @@ async function submitLeak(button) {
       </div>
     `;
     
-    // Create form data
-    const formData = new FormData();
-    formData.append('leak_submission', 'true');
-    formData.append('name', currentUser);
-    formData.append('team', currentTeam);
-    formData.append('content', content);
-    
     // Submit leak
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      body: formData
+    const result = await apiRequest({
+      leak_submission: true,
+      name: currentUser,
+      team: currentTeam,
+      content: content
     });
-    
-    const result = await res.json();
     
     if (result.success) {
       // Show success message
@@ -1351,8 +1381,7 @@ async function refreshNamesList() {
     localStorage.removeItem('userNames');
     
     // Fetch fresh data
-    const res = await fetch(`${API_URL}?list=true`);
-    const freshNames = await res.json();
+    const freshNames = await apiRequest({ list: true });
     
     // Cache new data
     setCachedData('userNames', freshNames);
@@ -1437,8 +1466,7 @@ async function refreshConfig() {
   }
 
   try {
-    const response = await fetch('/exec?action=get_config');
-    const data = await response.json();
+    const data = await apiRequest({ get_config: true });
     console.log('Config data received:', data);
 
     // Update active voting round for Mai
@@ -1471,8 +1499,10 @@ async function refreshConfig() {
 // Function to fetch vote results
 async function fetchVoteResults() {
   try {
-    const response = await fetch(`${API_URL}?voteResult=true&team=${currentTeam}`);
-    const data = await response.json();
+    const data = await apiRequest({
+      voteResult: true,
+      team: currentTeam
+    });
     console.log('Voting results received:', data);
     return data;
   } catch (error) {
@@ -1498,8 +1528,7 @@ async function refreshVotingData() {
       `;
 
       // Refresh config first
-      const configRes = await fetch(`${API_URL}?get_config=true`);
-      appConfig = await configRes.json();
+      appConfig = await apiRequest({ get_config: true });
       
       // Then refresh voting results
       updateVoteResultsDisplay(null); // Show loading state
@@ -1511,23 +1540,17 @@ async function refreshVotingData() {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
         </svg>
-        <span>Updated!</span>
+        <span>Refreshed!</span>
       `;
-      button.classList.remove('bg-gray-700');
-      button.classList.add('bg-green-600');
-
-      // Reset button state after a moment
+      
+      // Reset button after delay
       setTimeout(() => {
         button.innerHTML = originalContent;
-        button.classList.remove('bg-green-600');
-        button.classList.add('bg-gray-700');
         button.disabled = false;
-      }, 1500);
+      }, 1000);
     }
   } catch (error) {
     console.error('Error refreshing voting data:', error);
-    
-    // Show error state
     if (button) {
       button.innerHTML = `
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1535,16 +1558,12 @@ async function refreshVotingData() {
         </svg>
         <span>Error!</span>
       `;
-      button.classList.remove('bg-gray-700');
-      button.classList.add('bg-red-600');
-
-      // Reset button state after a moment
+      button.disabled = false;
+      
+      // Reset button after delay
       setTimeout(() => {
         button.innerHTML = originalContent;
-        button.classList.remove('bg-red-600');
-        button.classList.add('bg-gray-700');
-        button.disabled = false;
-      }, 1500);
+      }, 2000);
     }
   }
 }
