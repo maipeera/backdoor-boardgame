@@ -1242,8 +1242,13 @@ async function handleSpecialAction(actionType) {
           
           // Create form data
           const formData = new FormData();
+          // Get cached credentials
+          const cachedCredentials = getCachedUserCredentials();
+          if (!cachedCredentials) {
+            throw new Error('No cached credentials found. Please login again.');
+          }
           formData.append('team', currentTeam);
-          formData.append('name', nameInput.value);
+          formData.append('name', cachedCredentials.name);
           formData.append('file', base64Data);
           formData.append('filename', selectedFile.name);
           formData.append('mimeType', selectedFile.type);
