@@ -996,20 +996,37 @@ async function showGallery(teamName) {
 
     if (data && data.images && data.images.length > 0) {
       // Create image grid
-      gridEl.innerHTML = data.images.map(img => `
-        <div class="relative group">
-          <img 
-            src="${img.thumbnailUrl}" 
-            alt="Team submission" 
-            class="w-full h-48 object-cover rounded-lg cursor-pointer transition-transform duration-200 group-hover:scale-[1.02]"
-            onclick="showFullImage('${img.thumbnailUrl}', '${img.url}', '${img.submitter}')"
-          />
-          <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 to-transparent p-2 rounded-b-lg">
-            <p class="text-white text-sm">Submitted by: ${img.submitter}</p>
-            <p class="text-gray-300 text-xs">${new Date(img.timestamp).toLocaleString()}</p>
+      gridEl.innerHTML = data.images.map(img => {
+        // Create download URL by replacing export=view with export=download
+        const downloadUrl = img.url.replace('export=view', 'export=download');
+        
+        return `
+          <div class="relative group">
+            <img 
+              src="${img.thumbnailUrl}" 
+              alt="Team submission" 
+              class="w-full h-48 object-cover rounded-lg cursor-pointer transition-transform duration-200 group-hover:scale-[1.02]"
+              onclick="showFullImage('${img.thumbnailUrl}', '${img.url}', '${img.submitter}')"
+            />
+            <!-- Download button overlay -->
+            <a 
+              href="${downloadUrl}" 
+              download
+              class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/75 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+              onclick="event.stopPropagation();"
+              title="Download image"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+              </svg>
+            </a>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 to-transparent p-2 rounded-b-lg">
+              <p class="text-white text-sm">Submitted by: ${img.submitter}</p>
+              <p class="text-gray-300 text-xs">${new Date(img.timestamp).toLocaleString()}</p>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
       
       gridEl.classList.remove('hidden');
       loadingEl.classList.add('hidden');
