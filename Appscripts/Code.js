@@ -1012,7 +1012,7 @@ function getTeamSubmissions(team) {
           if (!mimeType.startsWith('image/')) return null;
           
           // Generate both full and thumbnail URLs
-          const viewableUrl = `https://drive.google.com/uc?export=view&id=${fileId[0]}`;
+          const viewableUrl = `https://drive.google.com/thumbnail?id=${fileId[0]}&sz=w1920`;
           const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId[0]}`;
           
           return {
