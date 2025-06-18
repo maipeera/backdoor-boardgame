@@ -481,14 +481,27 @@ function getRoleData(e) {
   switch (roleName) {
     case "Backdoor":
       if (teamMissionRow !== -1) {
-        const missionIdx = teamMissionHeaders.indexOf("backdoor-mission-id");
-        if (missionIdx !== -1) {
-          roleSpecificData = {
-            specialData: {
-              type: "backdoor_mission",
-              mission: teamMissionData[teamMissionRow][missionIdx]
+        const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+        const missionId = teamMissionData[teamMissionRow][missionIdIdx];
+        
+        // Find the installer member from teamMembers array
+        const installerMember = teamMembers.find(member => member.roleId === 2); // Role ID 2 is Backdoor Installer
+        
+        if (missionId) {
+          // Find the mission row to get the backdoor hint
+          const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
+          if (missionRow !== -1) {
+            const backdoorHintIdx = missionHeaders.indexOf("backdoor-hint");
+            if (backdoorHintIdx !== -1) {
+              roleSpecificData = {
+                specialData: {
+                  type: "backdoor_mission",
+                  mission: missionData[missionRow][backdoorHintIdx],
+                  installerMember: installerMember ? installerMember.name : null
+                }
+              };
             }
-          };
+          }
         }
       }
       break;
@@ -521,14 +534,23 @@ function getRoleData(e) {
       
     case "Legacy Code":
       if (teamMissionRow !== -1) {
-        const missionIdx = teamMissionHeaders.indexOf("legacy-mission");
-        if (missionIdx !== -1) {
-          roleSpecificData = {
-            specialData: {
-              type: "legacy_mission",
-              mission: teamMissionData[teamMissionRow][missionIdx]
+        const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+        const missionId = teamMissionData[teamMissionRow][missionIdIdx];
+        
+        if (missionId) {
+          // Find the mission row to get the legacy code behavior
+          const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
+          if (missionRow !== -1) {
+            const legacyBehaviorIdx = missionHeaders.indexOf("legacy-code-mission");
+            if (legacyBehaviorIdx !== -1) {
+              roleSpecificData = {
+                specialData: {
+                  type: "legacy_mission",
+                  mission: missionData[missionRow][legacyBehaviorIdx]
+                }
+              };
             }
-          };
+          }
         }
       }
       break;
@@ -552,6 +574,70 @@ function getRoleData(e) {
               suspects: suspects
             }
           };
+        }
+      }
+      break;
+
+    case "AI":
+      // Get role mapping from Role sheet
+      const roleSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Role");
+      const roleData = roleSheet.getDataRange().getValues();
+      const roleHeaders = roleData[0];
+      const idIdx = roleHeaders.indexOf("id");
+      const roleNameIdx = roleHeaders.indexOf("Role");
+      const iconIdx = roleHeaders.indexOf("icon");
+
+      // Create role mapping from sheet data
+      const roleMapping = roleData.slice(1).reduce((acc, row) => {
+        if (row[idIdx]) {
+          acc[row[idIdx]] = {
+            name: row[roleNameIdx],
+            icon: row[iconIdx]
+          };
+        }
+        return acc;
+      }, {});
+
+      // Get all team members with their roles
+      const teamMemberDetails = teamMembers.map(member => {
+        const roleInfo = roleMapping[member.roleId] || { name: "Unknown", icon: "" };
+        return {
+          name: member.name,
+          role: roleInfo.name,
+          roleId: member.roleId,
+          icon: roleInfo.icon
+        };
+      });
+
+      if (teamMemberDetails.length > 0) {
+        roleSpecificData = {
+          specialData: {
+            type: "em_team_info",
+            teamMembers: teamMemberDetails
+          }
+        };
+      }
+      break;
+
+    case "Key":
+      if (teamMissionRow !== -1) {
+        const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+        const missionId = teamMissionData[teamMissionRow][missionIdIdx];
+        
+        if (missionId) {
+          // Find the mission row to get the key behavior
+          const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
+          if (missionRow !== -1) {
+            const keyBehaviorIdx = missionHeaders.indexOf("key-behavior");
+            if (keyBehaviorIdx !== -1) {
+              roleSpecificData = {
+                specialData: {
+                  type: "key_behavior",
+                  behavior: missionData[missionRow][keyBehaviorIdx]
+                }
+              };
+            }
+          }
         }
       }
       break;

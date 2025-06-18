@@ -892,7 +892,20 @@ function renderRoleSpecificData(roleData) {
         <div class="mt-6">
           ${getRoleHeader('Backdoor')}
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
-            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.mission}</div>
+            ${data.installerMember ? `
+              <h5 class="text-yellow-400 font-medium mb-2">Installer ในทีมของคุณ</h5>
+              <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">
+                <div class="flex items-center gap-2">
+                  <span class="text-yellow-400">${getRoleEmoji('Backdoor Installer', roleData.roleIcon)}</span>
+                  <span class="text-white">${data.installerMember}</span>
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="${data.installerMember ? 'border-t border-gray-700/30 pt-4' : ''}">
+              <h5 class="text-yellow-400 font-medium mb-2">ภารกิจของคุณ</h5>
+              <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.mission}</div>
+            </div>
           </div>
         </div>
       `;
@@ -911,7 +924,6 @@ function renderRoleSpecificData(roleData) {
               </div>
             </div>
 
-            <!-- Mission Info -->
             <div class="border-t border-yellow-900/30 pt-4">
               <h5 class="text-yellow-400 font-medium mb-2">ภารกิจที่ต้องช่วย Backdoor</h5>
               <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.mission}</div>
@@ -926,6 +938,7 @@ function renderRoleSpecificData(roleData) {
         <div class="mt-6">
           ${getRoleHeader('Legacy Code')}
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+            <h5 class="text-yellow-400 font-medium mb-2">พฤติกรรมที่ต้องทำในรอบนี้</h5>
             <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.mission}</div>
           </div>
         </div>
@@ -937,6 +950,7 @@ function renderRoleSpecificData(roleData) {
         <div class="mt-6">
           ${getRoleHeader('Staff Engineer')}
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
+            <h5 class="text-yellow-400 font-medium mb-2">รายชื่อผู้ต้องสงสัย</h5>
             <p class="text-gray-300 mb-4">
               เพราะเก่งแล้วเลยรู้เยอะ มีชื่อคนน่าสงสัย 4 คน คนนึงในนี้จะเป็น Backdoor อีกคนจะเป็น Legacy Code ที่เหลือเป็นใครไม่รู้ เดาเอานะ สู้ๆ
             </p>
@@ -949,6 +963,44 @@ function renderRoleSpecificData(roleData) {
                   </div>
                 </div>
               `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+
+    case "key_behavior":
+      return `
+        ${warningHeader}
+        <div class="mt-6">
+          ${getRoleHeader('Key')}
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+            <h5 class="text-yellow-400 font-medium mb-2">พฤติกรรมที่ต้องทำในรอบนี้</h5>
+            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.behavior}</div>
+          </div>
+        </div>
+      `;
+
+    case "em_team_info":
+      return `
+        ${warningHeader}
+        <div class="mt-6">
+          ${getRoleHeader('AI')}
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+            <h5 class="text-yellow-400 font-medium mb-2">สมาชิกในทีมของคุณ</h5>
+            <div class="space-y-2">
+              ${[...data.teamMembers]
+                .sort((a, b) => a.roleId - b.roleId)
+                .map(member => `
+                  <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-3">
+                        <span class="text-gray-400">${member.icon}</span>
+                        <span class="text-white">${member.name}</span>
+                      </div>
+                      <span class="text-gray-400">${member.role}</span>
+                    </div>
+                  </div>
+                `).join('')}
             </div>
           </div>
         </div>
