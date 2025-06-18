@@ -863,9 +863,23 @@ async function fetchRole() {
 function renderRoleSpecificData(roleData) {
   if (!roleData) return '';
 
+  // Common warning header for sensitive data
+  const warningHeader = `
+    <div class="bg-red-900/30 rounded-lg border border-red-700/50 p-4 mb-4">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xl">🔒</span>
+        <h3 class="text-lg font-semibold text-red-400">ข้อมูลลับเฉพาะคุณ</h3>
+      </div>
+      <p class="text-gray-300 text-sm">
+        ข้อมูลในส่วนนี้เป็นความลับสำหรับบทบาทของคุณเท่านั้น กรุณาอย่าแชร์หรือเปิดเผยให้ผู้อื่นเห็นหน้าจอในส่วนนี้
+      </p>
+    </div>
+  `;
+
   switch (roleData.type) {
     case "team_list":
       return `
+        ${warningHeader}
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
             <span class="text-yellow-400">&gt;</span> ข้อมูลสำหรับ: ${roleData.role} ${getRoleEmoji(roleData.role, roleData.roleIcon)}
@@ -893,6 +907,7 @@ function renderRoleSpecificData(roleData) {
 
     case "legacy_mission":
       return `
+        ${warningHeader}
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
             <span class="text-yellow-400">&gt;</span> Legacy Code Mission ${getRoleEmoji(roleData.role, roleData.roleIcon)}
@@ -903,30 +918,9 @@ function renderRoleSpecificData(roleData) {
         </div>
       `;
 
-    case "backdoor_mission":
-      return `
-        <div class="mt-6">
-          <h4 class="text-lg font-semibold text-white mb-3">
-            <span class="text-red-400">&gt;</span> Backdoor Mission ${getRoleEmoji(roleData.role, roleData.roleIcon)}
-          </h4>
-          <div class="bg-gray-800/50 rounded-lg border border-red-900/50 p-4 space-y-4">
-            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
-            <button 
-              onclick="handleSpecialAction('leak')" 
-              class="w-full bg-red-600 text-black font-medium py-2 px-4 rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:opacity-75 ${!toBool(appConfig.allow_submit_leak) ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-75' : ''}"
-              ${!toBool(appConfig.allow_submit_leak) ? 'disabled' : ''}
-            >
-              <div class="flex flex-col items-center">
-                <span>$ leak --team-data</span>
-                ${!toBool(appConfig.allow_submit_leak) ? '<span class="text-xs opacity-75 mt-1">จะเปิดให้ leak ตอนกิจกรรมกลางคืน</span>' : ''}
-              </div>
-            </button>
-          </div>
-        </div>
-      `;
-
     case "backdoor_installer":
       return `
+        ${warningHeader}
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
             <span class="text-yellow-400">&gt;</span> Backdoor Installer Information ${getRoleEmoji(roleData.role, roleData.roleIcon)}
@@ -951,16 +945,20 @@ function renderRoleSpecificData(roleData) {
 
     case "se_suspects":
       return `
+        ${warningHeader}
         <div class="mt-6">
           <h4 class="text-lg font-semibold text-white mb-3">
             <span class="text-yellow-400">&gt;</span> รายชื่อผู้ต้องสงสัย ${getRoleEmoji('Staff Engineer', roleData.roleIcon)}
           </h4>
-          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
-            <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
+            <p class="text-gray-300 mb-4">
+              เพราะเก่งแล้วเลยรู้เยอะ มีชื่อคนน่าสงสัย 4 คน คนนึงในนี้จะเป็น Backdoor อีกคนจะเป็น Legacy Code ที่เหลือเป็นใครไม่รู้ เดาเอานะ สู้ๆ
+            </p>
+            <div class="space-y-2">
               ${roleData.suspects.map((suspect, index) => `
                 <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">
-                  <div class="flex items-center gap-2">
-                    <span class="text-gray-400">#${index + 1}</span>
+                  <div class="flex items-center gap-3">
+                    <span class="text-gray-400 font-mono">#${index + 1}</span>
                     <span class="text-white">${suspect}</span>
                   </div>
                 </div>
@@ -1234,8 +1232,8 @@ async function handleSpecialAction(actionType) {
             <div class="flex items-center gap-3 text-green-400">
               <div class="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full"></div>
               <div class="text-sm">
-                <div>กำลังอัพโหลดรูปภาพ...</div>
-                <div class="text-xs text-gray-400 mt-1">รอแปปนะครับ/คะ ขนาดไฟล์ใหญ่อาจจะช้าหน่อย</div>
+                <div>กำลังประมวลผลรูปภาพ...</div>
+                <div class="text-xs text-gray-400 mt-1">รอแปปนะครับ/คะ กำลังย่อรูปให้เหมาะสม</div>
               </div>
             </div>
           </div>
@@ -1246,20 +1244,30 @@ async function handleSpecialAction(actionType) {
           document.body.appendChild(loadingOverlay);
           teamButton.disabled = true;
 
-          // Read file as base64
-          const reader = new FileReader();
+          // Log original file info
+          const originalSize = (selectedFile.size / 1024 / 1024).toFixed(2);
+          console.log(`Original file: ${selectedFile.name}`);
+          console.log(`Original size: ${originalSize} MB`);
+          console.log(`Original type: ${selectedFile.type}`);
+
+          // Optimize image
+          const optimizedBlob = await optimizeImage(selectedFile);
           
-          // Create a promise to handle file reading
-          const readFileAsBase64 = new Promise((resolve, reject) => {
+          // Convert optimized blob to base64
+          const reader = new FileReader();
+          const base64Result = await new Promise((resolve, reject) => {
             reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(selectedFile);
+            reader.onerror = reject;
+            reader.readAsDataURL(optimizedBlob);
           });
 
-          // Wait for file to be read
-          const base64Result = await readFileAsBase64;
           // Get base64 data (remove data:image/xyz;base64, prefix)
           const base64Data = base64Result.split(',')[1];
+
+          // Log optimized size
+          const optimizedSize = (optimizedBlob.size / 1024 / 1024).toFixed(2);
+          const reduction = (100 - (optimizedBlob.size / selectedFile.size * 100)).toFixed(1);
+          console.log(`Optimized size: ${optimizedSize} MB (${reduction}% reduction)`);
           
           // Create form data
           const formData = new FormData();
@@ -1271,8 +1279,8 @@ async function handleSpecialAction(actionType) {
           formData.append('team', currentTeam);
           formData.append('name', cachedCredentials.name);
           formData.append('file', base64Data);
-          formData.append('filename', selectedFile.name);
-          formData.append('mimeType', selectedFile.type);
+          formData.append('filename', selectedFile.name.replace(/\.[^/.]+$/, "") + ".jpg"); // Force .jpg extension
+          formData.append('mimeType', 'image/jpeg');
 
           // Update loading message
           loadingOverlay.querySelector('.text-sm').innerHTML = `
@@ -1321,8 +1329,7 @@ async function handleSpecialAction(actionType) {
                 </svg>
                 <div class="text-sm">
                   <div>เกิดข้อผิดพลาด มีอะไรพังแหละ ไว้ลองกดใหม่นะ ไม่น่าจะแก้อะไรแล้ว😵</div>
-                  <div class="text-xs text-gray-400 mt-1">${error.message}</div>
-                </div>
+                <div class="text-xs text-gray-400 mt-1">${error.message}</div>
               </div>
             </div>
           `;
@@ -1340,7 +1347,7 @@ async function handleSpecialAction(actionType) {
       fileInput.oncancel = () => {
         document.body.removeChild(fileInput);
       };
-      
+        
     } catch (error) {
       console.error('Error in team submission:', error);
       alert('เกิดข้อผิดพลาด: ' + error.message);
@@ -1350,501 +1357,65 @@ async function handleSpecialAction(actionType) {
     }
     return;
   }
-  
-  // Handle other actions (leak and vote)
-  const button = document.getElementById(buttonId);
-  if (!button) return;
-  
-  try {
-    button.classList.add('btn-loading');
-    button.disabled = true;
-    
-    // Check if action is allowed in configuration
-    const actionKey = {
-      'leak': 'allow_submit_leak',
-      'vote': 'allow_vote'
-    }[actionType];
-
-    if (!toBool(appConfig[actionKey])) {
-      alert('This action is currently disabled by configuration.');
-      return;
-    }
-    
-    // TODO: Implement special actions when ready
-    console.log(`Special action ${actionType} triggered`);
-    
-  } catch (error) {
-    console.error(`Error in special action ${actionType}:`, error);
-  } finally {
-    button.classList.remove('btn-loading');
-    button.disabled = false;
-  }
 }
 
-async function submitLeak(button) {
-  const dialog = button.closest('.fixed');
-  const textarea = dialog.querySelector('textarea');
-  const content = textarea.value.trim();
-  
-  if (!content) {
-    alert('Please enter the information you want to leak');
-    return;
-  }
-  
-  try {
-    // Show loading state
-    const originalText = button.textContent;
-    button.disabled = true;
-    button.innerHTML = `
-      <div class="flex items-center gap-2">
-        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        <span>Submitting...</span>
-      </div>
-    `;
-    
-    // Submit leak
-    const result = await apiRequest({
-      leak_submission: true,
-      name: currentUser,
-      team: currentTeam,
-      content: content
-    });
-    
-    if (result.success) {
-      // Show success message
-      dialog.innerHTML = `
-        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-sm w-full mx-4">
-          <div class="flex items-center gap-3 text-green-400">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <div class="text-sm">
-              <div>Leak submitted successfully!</div>
-              <div class="text-xs text-gray-400 mt-1">Your information has been recorded.</div>
-            </div>
-          </div>
-        </div>
-      `;
+// Add these utility functions for image processing
+async function optimizeImage(file) {
+  return new Promise((resolve, reject) => {
+    // Target dimensions and quality - increased for better quality
+    const MAX_WIDTH = 3840;  // 4K width
+    const MAX_HEIGHT = 2160; // 4K height
+    const QUALITY = 0.92;    // Very high quality JPEG
+    const RAW_QUALITY = 0.95; // Near-lossless for RAW
+
+    // Special handling for RAW formats
+    const isRawFormat = file.type === 'image/x-adobe-dng' || 
+                       file.name.toLowerCase().endsWith('.dng');
+
+    // Create image object to load the file
+    const img = new Image();
+    img.onload = function() {
+      // Calculate new dimensions while maintaining aspect ratio
+      let width = img.width;
+      let height = img.height;
       
-      // Remove dialog after delay
-      setTimeout(() => {
-        dialog.remove();
-      }, 2000);
-    } else {
-      throw new Error(result.error || 'Failed to submit leak');
-    }
-  } catch (error) {
-    console.error('Error submitting leak:', error);
-    
-    // Show error message
-    button.innerHTML = originalText;
-    button.disabled = false;
-    
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'text-red-400 text-sm mt-2';
-    errorDiv.textContent = error.message;
-    button.parentElement.appendChild(errorDiv);
-  }
-}
-
-// Add after the cache helper functions
-async function refreshNamesList() {
-  try {
-    // Clear existing cache
-    setCachedData('userNames', null);
-    
-    // Fetch fresh data
-    const freshNames = await apiRequest({ list: true });
-    
-    // Cache new data
-    setCachedData('userNames', freshNames);
-    
-    return freshNames;
-  } catch (error) {
-    console.error('Error refreshing names list:', error);
-    throw error;
-  }
-}
-
-// Add after the cache helper functions
-async function clearCache() {
-  try {
-    // Create feedback toast
-    const toast = document.createElement('div');
-    toast.className = 'fixed top-4 right-4 bg-gray-800 text-green-400 px-4 py-2 rounded-lg border border-gray-700 shadow-lg z-50 flex items-center gap-2 transition-opacity duration-300';
-    toast.innerHTML = `
-      <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-      </svg>
-      <span>ลบแคชอยู่แปปนะ...</span>
-    `;
-    document.body.appendChild(toast);
-
-    // Clear localStorage
-    localStorage.clear();
-    
-    // Show success message
-    toast.innerHTML = `
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-      </svg>
-      <span>ลบเสร็จแล้ว reload แว๊บเดียว</span>
-    `;
-    toast.classList.remove('bg-gray-800');
-    toast.classList.add('bg-green-900');
-
-    // Wait a moment to show the success message, then refresh
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-
-  } catch (error) {
-    console.error('Error clearing cache:', error);
-    
-    // Show error message
-    const toast = document.createElement('div');
-    toast.className = 'fixed top-4 right-4 bg-red-900 text-red-400 px-4 py-2 rounded-lg border border-red-700 shadow-lg z-50 flex items-center gap-2';
-    toast.innerHTML = `
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-      </svg>
-      <span>Failed to clear cache</span>
-    `;
-    document.body.appendChild(toast);
-
-    // Remove error toast after delay
-    setTimeout(() => {
-      toast.classList.add('opacity-0');
-      setTimeout(() => document.body.removeChild(toast), 300);
-    }, 3000);
-  }
-}
-
-// Add refresh config function
-async function refreshConfig() {
-  console.log('Starting config refresh...');
-  
-  // Get the refresh button
-  const button = document.querySelector('button[onclick="refreshConfig()"]');
-  console.log('Refresh button found:', button);
-  
-  if (button) {
-    const text = button.querySelector('.text');
-    const spinner = button.querySelector('.spinner');
-    
-    // Show loading state
-    text.classList.add('hidden');
-    spinner.classList.remove('hidden');
-    button.disabled = true;
-  }
-
-  try {
-    const data = await apiRequest({ get_config: true });
-    console.log('Config data received:', data);
-
-  } catch (error) {
-    console.error('Error refreshing config:', error);
-    alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
-  } finally {
-    // Reset button state
-    if (button) {
-      const text = button.querySelector('.text');
-      const spinner = button.querySelector('.spinner');
-      
-      text.classList.remove('hidden');
-      spinner.classList.add('hidden');
-      button.disabled = false;
-    }
-  }
-}
-
-// Function to fetch vote results
-async function fetchVoteResults() {
-  try {
-    const data = await apiRequest({
-      voteResult: true,
-      team: currentTeam
-    });
-    console.log('Voting results received:', data);
-    return data;
-  } catch (error) {
-    console.error('Error fetching vote results:', error);
-    return null;
-  }
-}
-
-// Function to refresh voting data
-async function refreshVotingData() {
-  try {
-    // Get the refresh button
-    const button = document.querySelector('button[onclick="refreshVotingData()"]');
-    if (button) {
-      // Disable button and show loading state
-      button.disabled = true;
-      const originalContent = button.innerHTML;
-      button.innerHTML = `
-        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        <span>Refreshing...</span>
-      `;
-
-      // Refresh config first
-      appConfig = await apiRequest({ get_config: true });
-      
-      // Then refresh voting results
-      updateVoteResultsDisplay(null); // Show loading state
-      const results = await fetchVoteResults();
-      updateVoteResultsDisplay(results);
-
-      // Show success state briefly
-      button.innerHTML = `
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        <span>Refreshed!</span>
-      `;
-      
-      // Reset button after delay
-      setTimeout(() => {
-        button.innerHTML = originalContent;
-        button.disabled = false;
-      }, 1000);
-    }
-  } catch (error) {
-    console.error('Error refreshing voting data:', error);
-    if (button) {
-      button.innerHTML = `
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-        <span>Error!</span>
-      `;
-      button.disabled = false;
-      
-      // Reset button after delay
-      setTimeout(() => {
-        button.innerHTML = originalContent;
-      }, 2000);
-    }
-  }
-}
-
-// Function to update vote results display
-function updateVoteResultsDisplay(results) {
-  const loadingElement = document.getElementById('voteResultsLoading');
-  const contentElement = document.getElementById('voteResultsContent');
-  const listElement = document.getElementById('voteResultsList');
-
-  if (!results) {
-    loadingElement.classList.remove('hidden');
-    contentElement.classList.add('hidden');
-    return;
-  }
-
-  // Get AI members from cache
-  const aiMembers = getCachedData('aiMembers') || [];
-
-  // Sort members by vote count in descending order
-  const sortedMembers = Object.entries(results)
-    .filter(([name]) => !aiMembers.includes(name)) // Exclude AI members using cached data
-    .sort(([, a], [, b]) => b - a);
-
-  // Get the maximum votes for scaling
-  const maxVotes = Math.max(...sortedMembers.map(([, votes]) => votes));
-
-  // Create the HTML for vote results
-  const resultsHTML = sortedMembers.map(([name, votes], index) => {
-    // Calculate percentage for bar width
-    const percentage = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
-    
-    return `
-      <div class="relative flex items-center mb-2 h-12">
-        <!-- Rank Number -->
-        <div class="absolute left-0 w-8 text-center">
-          <span class="text-gray-400 text-sm">#${index + 1}</span>
-        </div>
-        
-        <!-- Name and Votes -->
-        <div class="absolute left-10 right-0 flex items-center h-full">
-          <!-- Bar Background -->
-          <div class="absolute right-0 h-full bg-gray-700 rounded-lg" style="width: ${percentage}%">
-            <!-- Gradient Overlay -->
-            <div class="absolute inset-0 bg-gradient-to-l from-red-500/20 to-transparent rounded-lg"></div>
-          </div>
-          
-          <!-- Name (left aligned) -->
-          <div class="absolute left-2 z-10">
-            <span class="text-white font-medium">${name}</span>
-          </div>
-          
-          <!-- Vote Count (right aligned) -->
-          <div class="absolute right-2 z-10">
-            <span class="text-gray-300 font-medium">${votes}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  listElement.innerHTML = resultsHTML;
-  loadingElement.classList.add('hidden');
-  contentElement.classList.remove('hidden');
-}
-
-// Update the vote submission function
-async function submitVote(round) {
-  const select = document.getElementById(`vote-${round}`);
-  const button = document.querySelector(`button[onclick="submitVote(${round})"]`);
-  const votedFor = select.value;
-  
-  if (!votedFor) {
-    alert('กรุณาเลือกผู้เล่นที่ต้องการโหวต');
-    return;
-  }
-
-  try {
-    // Show loading state
-    const originalContent = button.innerHTML;
-    button.disabled = true;
-    select.disabled = true;
-    button.innerHTML = `
-      <div class="flex items-center gap-2">
-        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        <span>กำลังบันทึก...</span>
-      </div>
-    `;
-
-    // Get cached credentials
-    const cachedCredentials = getCachedUserCredentials();
-    if (!cachedCredentials) {
-      throw new Error('No cached credentials found. Please login again.');
-    }
-
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        vote: 'true',
-        voterId: currentUser,
-        votedFor: votedFor,
-        round: round.toString(),
-        pin: cachedCredentials.pin
-      })
-    });
-
-    const result = await response.json();
-    
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    // Update the vote results display with the returned data
-    updateVoteResultsDisplay(result);
-    
-    // Show success state
-    button.innerHTML = `
-      <div class="flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        <span>บันทึกแล้ว!</span>
-      </div>
-    `;
-    button.classList.remove('bg-blue-600');
-    button.classList.add('bg-green-600');
-
-    // Show success popup
-    const popup = document.createElement('div');
-    popup.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50 p-4 animate-fade-in';
-    popup.innerHTML = `
-      <div class="bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
-        <div class="text-center">
-          <div class="flex justify-center mb-4">
-            <div class="rounded-full bg-green-600/20 p-3">
-              <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-          </div>
-          <h3 class="text-xl font-semibold text-white mb-2">โหวตสำเร็จ! 🎉</h3>
-          <p class="text-gray-300 mb-4">ปรักปรำ <span class="text-yellow-400 font-medium">${votedFor}</span> เรียบร้อย</p>
-          <p class="text-sm text-gray-400">หน้าต่างนี้จะปิดอัตโนมัติใน <span class="countdown">3</span> วินาที</p>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(popup);
-
-    // Add fade-in animation style
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes fade-in {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
+      if (width > MAX_WIDTH) {
+        height = Math.round(height * (MAX_WIDTH / width));
+        width = MAX_WIDTH;
       }
-      .animate-fade-in {
-        animation: fade-in 0.2s ease-out forwards;
+      if (height > MAX_HEIGHT) {
+        width = Math.round(width * (MAX_HEIGHT / height));
+        height = MAX_HEIGHT;
       }
-    `;
-    document.head.appendChild(style);
 
-    // Start countdown
-    let secondsLeft = 3;
-    const countdownEl = popup.querySelector('.countdown');
-    const countdownInterval = setInterval(() => {
-      secondsLeft--;
-      if (secondsLeft > 0) {
-        countdownEl.textContent = secondsLeft;
-      } else {
-        countdownEl.textContent = '0';
-      }
-    }, 1000);
-
-    // Remove popup and reset button after delay
-    setTimeout(() => {
-      popup.remove();
-      style.remove();
-      clearInterval(countdownInterval);
+      // Create canvas for resizing
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
       
-      // Reset button state
-      button.innerHTML = originalContent;
-      button.classList.remove('bg-green-600');
-      button.classList.add('bg-blue-600');
-      button.disabled = false;
-      select.disabled = false;
-    }, 3000);
+      // Draw image
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF'; // White background
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Use higher quality for all images
+      const finalQuality = isRawFormat ? RAW_QUALITY : QUALITY;
+      
+      // Convert to blob
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, 'image/jpeg', finalQuality);
+    };
     
-  } catch (error) {
-    console.error('Error submitting vote:', error);
+    img.onerror = reject;
     
-    // Show error state
-    button.innerHTML = `
-      <div class="flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-        <span>ผิดพลาด!</span>
-      </div>
-    `;
-    button.classList.remove('bg-blue-600');
-    button.classList.add('bg-red-600');
-
-    // Show error message
-    alert(error.message || 'เกิดข้อผิดพลาดในการบันทึกการโหวต');
-
-    // Reset button state after delay
-    setTimeout(() => {
-      button.innerHTML = originalContent;
-      button.classList.remove('bg-red-600');
-      button.classList.add('bg-blue-600');
-      button.disabled = false;
-      select.disabled = false;
-    }, 2000);
-  }
-} 
+    // Load image from file
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}

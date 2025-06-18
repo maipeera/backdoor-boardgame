@@ -204,15 +204,18 @@ function regenerateGroupsAndRoles() {
       
       Logger.log(`Processing team ${team}`);
       
-      // Get all team members
+      // Get eligible team members (exclude AI and Staff Engineer)
       const teamMembers = playerData.slice(1) // Skip header
-        .filter(row => row[teamIdx] === team && row[roleIdx] !== 7 && row[roleIdx] !== 4); // Exclude AI role
+        .filter(row => {
+          const roleId = parseInt(row[roleIdx]); // Convert to number for strict comparison
+          return row[teamIdx] === team && roleId !== 7 && roleId !== 4; // Exclude AI (7) and SE (4)
+        });
   
-      Logger.log(`Team members: ${JSON.stringify(teamMembers)}`);
+      Logger.log(`Eligible team members: ${JSON.stringify(teamMembers)}`);
   
       // Find Backdoor and Legacy Code members
-      const backdoor = teamMembers.find(member => member[roleIdx] === 1); // Assuming 1 is Backdoor role ID
-      const legacyCode = teamMembers.find(member => member[roleIdx] === 3); // Assuming 3 is Legacy Code role ID
+      const backdoor = teamMembers.find(member => parseInt(member[roleIdx]) === 1); // Backdoor role ID = 1
+      const legacyCode = teamMembers.find(member => parseInt(member[roleIdx]) === 3); // Legacy Code role ID = 3
       
       if (!backdoor || !legacyCode) {
         Logger.log(`Missing required roles in team ${team}. Backdoor: ${!!backdoor}, Legacy Code: ${!!legacyCode}`);
