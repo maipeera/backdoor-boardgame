@@ -305,19 +305,6 @@ window.onload = async () => {
     console.log('No cached credentials found, proceeding with manual login');
   }
 
-  // Add rules button after title
-  const titleElement = document.querySelector('.text-2xl.sm\\:text-3xl');
-  if (titleElement) {
-    const rulesButton = document.createElement('button');
-    rulesButton.className = 'ml-4 px-3 py-1 text-sm bg-gray-800 text-gray-300 hover:text-green-400 rounded-lg border border-gray-700 transition-colors flex items-center gap-2';
-    rulesButton.innerHTML = `
-      <span>กดเพื่อดูคำอธิบายและกฎการเล่น</span>
-      <span class="text-lg">📖</span>
-    `;
-    rulesButton.onclick = showRules;
-    titleElement.parentElement.appendChild(rulesButton);
-  }
-
   // Add input event listeners for PIN fields
   pinInput.addEventListener('input', (e) => {
     e.target.value = e.target.value.replace(/[^0-9]/g, '');
@@ -698,17 +685,17 @@ async function fetchRole() {
                 ${currentUser ? `
                   <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
-                      <h2 class="text-2xl font-bold text-white">🗳️ จับโจรกันจ้า</h2>
+                      <h2 class="text-lg font-bold text-white">🗳️ จับโจรกันจ้า</h2>
                       <span id="votingRoundInfo" class="text-sm font-medium ml-4"></span>
                     </div>
                     <button 
                       onclick="refreshVotingData()" 
-                      class="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-600"
+                      class="flex items-center gap-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-600"
                     >
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                       </svg>
-                      <span>Refresh</span>
+                      <span class="text-sm">Refresh</span>
                     </button>
                   </div>
                   <div id="votingRoundsOuterContainer">
@@ -1575,7 +1562,7 @@ async function refreshVotingData() {
         <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
         </svg>
-        <span>Refreshing...</span>
+        <span class="text-sm">Refreshing</span>
       `;
 
       // Get cached credentials for re-fetching role data
@@ -1617,7 +1604,7 @@ async function refreshVotingData() {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
         </svg>
-        <span>Refreshed!</span>
+        <span class="text-sm">Refreshed!</span>
       `;
       
       // Reset button after delay
@@ -2020,7 +2007,7 @@ function generateVotingInterfaceHTML(data) {
 
     <!-- Vote Results Section -->
     <div class="mt-8">
-      <h3 class="text-xl font-semibold text-white mb-4">Ranking โหวตกำจัด Backdoor 🗡️</h3>
+      <h3 class="text-lg font-semibold text-white mb-4">🗡️ อันดับถูกโหวต Backdoor</h3>
       <div id="voteResultsLoading" class="text-center py-8">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
         <p class="text-gray-400 mt-2">กำลังโหลดผลโหวต...</p>
