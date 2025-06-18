@@ -1357,6 +1357,513 @@ async function handleSpecialAction(actionType) {
     }
     return;
   }
+
+  
+  // Handle other actions (leak and vote)
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+  
+  try {
+    button.classList.add('btn-loading');
+    button.disabled = true;
+    
+    // Check if action is allowed in configuration
+    const actionKey = {
+      'leak': 'allow_submit_leak',
+      'vote': 'allow_vote'
+    }[actionType];
+
+    if (!toBool(appConfig[actionKey])) {
+      alert('This action is currently disabled by configuration.');
+      return;
+    }
+    
+    // TODO: Implement special actions when ready
+    console.log(`Special action ${actionType} triggered`);
+    
+  } catch (error) {
+    console.error(`Error in special action ${actionType}:`, error);
+  } finally {
+    button.classList.remove('btn-loading');
+    button.disabled = false;
+  }
+}
+
+async function submitLeak(button) {
+  const dialog = button.closest('.fixed');
+  const textarea = dialog.querySelector('textarea');
+  const content = textarea.value.trim();
+  
+  if (!content) {
+    alert('Please enter the information you want to leak');
+    return;
+  }
+  
+  try {
+    // Show loading state
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Submitting...</span>
+      </div>
+    `;
+    
+    // Submit leak
+    const result = await apiRequest({
+      leak_submission: true,
+      name: currentUser,
+      team: currentTeam,
+      content: content
+    });
+    
+    if (result.success) {
+      // Show success message
+      dialog.innerHTML = `
+        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 max-w-sm w-full mx-4">
+          <div class="flex items-center gap-3 text-green-400">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <div class="text-sm">
+              <div>Leak submitted successfully!</div>
+              <div class="text-xs text-gray-400 mt-1">Your information has been recorded.</div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Remove dialog after delay
+      setTimeout(() => {
+        dialog.remove();
+      }, 2000);
+    } else {
+      throw new Error(result.error || 'Failed to submit leak');
+    }
+  } catch (error) {
+    console.error('Error submitting leak:', error);
+    
+    // Show error message
+    button.innerHTML = originalText;
+    button.disabled = false;
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'text-red-400 text-sm mt-2';
+    errorDiv.textContent = error.message;
+    button.parentElement.appendChild(errorDiv);
+  }
+}
+
+// Add after the cache helper functions
+async function refreshNamesList() {
+  try {
+    // Clear existing cache
+    setCachedData('userNames', null);
+    
+    // Fetch fresh data
+    const freshNames = await apiRequest({ list: true });
+    
+    // Cache new data
+    setCachedData('userNames', freshNames);
+    
+    return freshNames;
+  } catch (error) {
+    console.error('Error refreshing names list:', error);
+    throw error;
+  }
+}
+
+// Add after the cache helper functions
+async function clearCache() {
+  try {
+    // Create feedback toast
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-gray-800 text-green-400 px-4 py-2 rounded-lg border border-gray-700 shadow-lg z-50 flex items-center gap-2 transition-opacity duration-300';
+    toast.innerHTML = `
+      <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+      <span>ลบแคชอยู่แปปนะ...</span>
+    `;
+    document.body.appendChild(toast);
+
+    // Clear localStorage
+    localStorage.clear();
+    
+    // Show success message
+    toast.innerHTML = `
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+      <span>ลบเสร็จแล้ว reload แว๊บเดียว</span>
+    `;
+    toast.classList.remove('bg-gray-800');
+    toast.classList.add('bg-green-900');
+
+    // Wait a moment to show the success message, then refresh
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+
+  } catch (error) {
+    console.error('Error clearing cache:', error);
+    
+    // Show error message
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-red-900 text-red-400 px-4 py-2 rounded-lg border border-red-700 shadow-lg z-50 flex items-center gap-2';
+    toast.innerHTML = `
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+      <span>Failed to clear cache</span>
+    `;
+    document.body.appendChild(toast);
+
+    // Remove error toast after delay
+    setTimeout(() => {
+      toast.classList.add('opacity-0');
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
+  }
+}
+
+// Add refresh config function
+async function refreshConfig() {
+  console.log('Starting config refresh...');
+  
+  // Get the refresh button
+  const button = document.querySelector('button[onclick="refreshConfig()"]');
+  console.log('Refresh button found:', button);
+  
+  if (button) {
+    const text = button.querySelector('.text');
+    const spinner = button.querySelector('.spinner');
+    
+    // Show loading state
+    text.classList.add('hidden');
+    spinner.classList.remove('hidden');
+    button.disabled = true;
+  }
+
+  try {
+    const data = await apiRequest({ get_config: true });
+    console.log('Config data received:', data);
+
+  } catch (error) {
+    console.error('Error refreshing config:', error);
+    alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+  } finally {
+    // Reset button state
+    if (button) {
+      const text = button.querySelector('.text');
+      const spinner = button.querySelector('.spinner');
+      
+      text.classList.remove('hidden');
+      spinner.classList.add('hidden');
+      button.disabled = false;
+    }
+  }
+}
+
+// Function to fetch vote results
+async function fetchVoteResults() {
+  try {
+    const data = await apiRequest({
+      voteResult: true,
+      team: currentTeam
+    });
+    console.log('Voting results received:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching vote results:', error);
+    return null;
+  }
+}
+
+// Function to refresh voting data
+async function refreshVotingData() {
+  try {
+    // Get the refresh button
+    const button = document.querySelector('button[onclick="refreshVotingData()"]');
+    if (button) {
+      // Disable button and show loading state
+      button.disabled = true;
+      const originalContent = button.innerHTML;
+      button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Refreshing...</span>
+      `;
+
+      // Refresh config first
+      appConfig = await apiRequest({ get_config: true });
+      
+      // Then refresh voting results
+      updateVoteResultsDisplay(null); // Show loading state
+      const results = await fetchVoteResults();
+      updateVoteResultsDisplay(results);
+
+      // Show success state briefly
+      button.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span>Refreshed!</span>
+      `;
+      
+      // Reset button after delay
+      setTimeout(() => {
+        button.innerHTML = originalContent;
+        button.disabled = false;
+      }, 1000);
+    }
+  } catch (error) {
+    console.error('Error refreshing voting data:', error);
+    if (button) {
+      button.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        <span>Error!</span>
+      `;
+      button.disabled = false;
+      
+      // Reset button after delay
+      setTimeout(() => {
+        button.innerHTML = originalContent;
+      }, 2000);
+    }
+  }
+}
+
+// Function to update vote results display
+function updateVoteResultsDisplay(results) {
+  const loadingElement = document.getElementById('voteResultsLoading');
+  const contentElement = document.getElementById('voteResultsContent');
+  const listElement = document.getElementById('voteResultsList');
+
+  if (!results) {
+    loadingElement.classList.remove('hidden');
+    contentElement.classList.add('hidden');
+    return;
+  }
+
+  // Get AI members from cache
+  const aiMembers = getCachedData('aiMembers') || [];
+
+  // Sort members by vote count in descending order
+  const sortedMembers = Object.entries(results)
+    .filter(([name]) => !aiMembers.includes(name)) // Exclude AI members using cached data
+    .sort(([, a], [, b]) => b - a);
+
+  // Get the maximum votes for scaling
+  const maxVotes = Math.max(...sortedMembers.map(([, votes]) => votes));
+
+  // Create the HTML for vote results
+  const resultsHTML = sortedMembers.map(([name, votes], index) => {
+    // Calculate percentage for bar width
+    const percentage = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
+    
+    return `
+      <div class="relative flex items-center mb-2 h-12">
+        <!-- Rank Number -->
+        <div class="absolute left-0 w-8 text-center">
+          <span class="text-gray-400 text-sm">#${index + 1}</span>
+        </div>
+        
+        <!-- Name and Votes -->
+        <div class="absolute left-10 right-0 flex items-center h-full">
+          <!-- Bar Background -->
+          <div class="absolute right-0 h-full bg-gray-700 rounded-lg" style="width: ${percentage}%">
+            <!-- Gradient Overlay -->
+            <div class="absolute inset-0 bg-gradient-to-l from-red-500/20 to-transparent rounded-lg"></div>
+          </div>
+          
+          <!-- Name (left aligned) -->
+          <div class="absolute left-2 z-10">
+            <span class="text-white font-medium">${name}</span>
+          </div>
+          
+          <!-- Vote Count (right aligned) -->
+          <div class="absolute right-2 z-10">
+            <span class="text-gray-300 font-medium">${votes}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listElement.innerHTML = resultsHTML;
+  loadingElement.classList.add('hidden');
+  contentElement.classList.remove('hidden');
+}
+
+// Update the vote submission function
+async function submitVote(round) {
+  const select = document.getElementById(`vote-${round}`);
+  const button = document.querySelector(`button[onclick="submitVote(${round})"]`);
+  const votedFor = select.value;
+  
+  if (!votedFor) {
+    alert('กรุณาเลือกผู้เล่นที่ต้องการโหวต');
+    return;
+  }
+
+  try {
+    // Show loading state
+    const originalContent = button.innerHTML;
+    button.disabled = true;
+    select.disabled = true;
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>กำลังบันทึก...</span>
+      </div>
+    `;
+
+    // Get cached credentials
+    const cachedCredentials = getCachedUserCredentials();
+    if (!cachedCredentials) {
+      throw new Error('No cached credentials found. Please login again.');
+    }
+
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        vote: 'true',
+        voterId: currentUser,
+        votedFor: votedFor,
+        round: round.toString(),
+        pin: cachedCredentials.pin
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    // Update the vote results display with the returned data
+    updateVoteResultsDisplay(result);
+    
+    // Show success state
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span>บันทึกแล้ว!</span>
+      </div>
+    `;
+    button.classList.remove('bg-blue-600');
+    button.classList.add('bg-green-600');
+
+    // Show success popup
+    const popup = document.createElement('div');
+    popup.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50 p-4 animate-fade-in';
+    popup.innerHTML = `
+      <div class="bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
+        <div class="text-center">
+          <div class="flex justify-center mb-4">
+            <div class="rounded-full bg-green-600/20 p-3">
+              <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+          </div>
+          <h3 class="text-xl font-semibold text-white mb-2">โหวตสำเร็จ! 🎉</h3>
+          <p class="text-gray-300 mb-4">ปรักปรำ <span class="text-yellow-400 font-medium">${votedFor}</span> เรียบร้อย</p>
+          <p class="text-sm text-gray-400">หน้าต่างนี้จะปิดอัตโนมัติใน <span class="countdown">3</span> วินาที</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(popup);
+
+    // Add fade-in animation style
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fade-in {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.2s ease-out forwards;
+      }
+      /* Disable pointer events on background content */
+      body.popup-active > *:not(.fixed) {
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Add class to body to disable background interactions
+    document.body.classList.add('popup-active');
+
+    // Start countdown
+    let secondsLeft = 3;
+    const countdownEl = popup.querySelector('.countdown');
+    const countdownInterval = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft > 0) {
+        countdownEl.textContent = secondsLeft;
+      } else {
+        countdownEl.textContent = '0';
+      }
+    }, 1000);
+
+    // Remove popup and reset button after delay
+    setTimeout(() => {
+      popup.remove();
+      style.remove();
+      clearInterval(countdownInterval);
+      // Remove class from body to re-enable background interactions
+      document.body.classList.remove('popup-active');
+      
+      // Reset button state
+      button.innerHTML = originalContent;
+      button.classList.remove('bg-green-600');
+      button.classList.add('bg-blue-600');
+      button.disabled = false;
+      select.disabled = false;
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error submitting vote:', error);
+    
+    // Show error state
+    button.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        <span>ผิดพลาด!</span>
+      </div>
+    `;
+    button.classList.remove('bg-blue-600');
+    button.classList.add('bg-red-600');
+
+    // Show error message
+    alert(error.message || 'เกิดข้อผิดพลาดในการบันทึกการโหวต');
+
+    // Reset button state after delay
+    setTimeout(() => {
+      button.innerHTML = originalContent;
+      button.classList.remove('bg-red-600');
+      button.classList.add('bg-blue-600');
+      button.disabled = false;
+      select.disabled = false;
+    }, 2000);
+  }
 }
 
 // Add these utility functions for image processing
@@ -1418,4 +1925,55 @@ async function optimizeImage(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// Function to fetch vote results from the API
+async function fetchVoteResults() {
+  try {
+    const data = await apiRequest({
+      voteResult: 'true',
+      team: currentTeam
+    });
+    return data;
+  } catch (error) {
+    console.error('Error fetching vote results:', error);
+    return null;
+  }
+}
+
+// Function to update the vote results display
+function updateVoteResultsDisplay(results) {
+  const loadingElement = document.getElementById('voteResultsLoading');
+  const contentElement = document.getElementById('voteResultsContent');
+  const listElement = document.getElementById('voteResultsList');
+
+  if (!results) {
+    // Show loading state
+    loadingElement.classList.remove('hidden');
+    contentElement.classList.add('hidden');
+    return;
+  }
+
+  // Hide loading, show content
+  loadingElement.classList.add('hidden');
+  contentElement.classList.remove('hidden');
+
+  // Convert results object to sorted array
+  const sortedResults = Object.entries(results)
+    .sort(([, a], [, b]) => b - a) // Sort by vote count descending
+    .map(([name, votes]) => ({ name, votes }));
+
+  // Generate HTML for each result
+  listElement.innerHTML = sortedResults.map((result, index) => `
+    <div class="flex items-center justify-between p-2 ${index === 0 ? 'bg-red-900/20' : ''} rounded">
+      <div class="flex items-center gap-3">
+        <span class="text-lg font-bold ${index === 0 ? 'text-red-400' : 'text-gray-400'}">#${index + 1}</span>
+        <span class="text-white">${result.name}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium ${index === 0 ? 'text-red-400' : 'text-gray-400'}">${result.votes}</span>
+        <span class="text-xs text-gray-500">votes</span>
+      </div>
+    </div>
+  `).join('');
 }
