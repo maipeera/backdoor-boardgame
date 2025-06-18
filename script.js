@@ -861,7 +861,7 @@ async function fetchRole() {
 }
 
 function renderRoleSpecificData(roleData) {
-  if (!roleData) return '';
+  if (!roleData || !roleData.specialData) return '';
 
   // Common warning header for sensitive data
   const warningHeader = `
@@ -876,31 +876,46 @@ function renderRoleSpecificData(roleData) {
     </div>
   `;
 
-  switch (roleData.type) {
-    case "team_list":
+  const { type, ...data } = roleData.specialData;
+
+  // Create reusable role header
+  const getRoleHeader = (roleName) => `
+    <h4 class="text-lg font-semibold text-white mb-3">
+      <span class="text-yellow-400">&gt;</span> ข้อมูลลับ ${roleName} ${getRoleEmoji(roleName, roleData.roleIcon)}
+    </h4>
+  `;
+
+  switch (type) {
+    case "backdoor_mission":
       return `
         ${warningHeader}
         <div class="mt-6">
-          <h4 class="text-lg font-semibold text-white mb-3">
-            <span class="text-yellow-400">&gt;</span> ข้อมูลสำหรับ: ${roleData.role} ${getRoleEmoji(roleData.role, roleData.roleIcon)}
-          </h4>
-          <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-            <table class="min-w-full">
-              <thead>
-                <tr>
-                  <th class="text-left text-gray-300 pb-2">ชื่อ</th>
-                  <th class="text-left text-gray-300 pb-2">บทบาท</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${roleData.members.map(member => `
-                  <tr class="border-t border-gray-700">
-                    <td class="py-2 text-white">${member.name}</td>
-                    <td class="py-2 text-gray-200">${member.role} ${getRoleEmoji(member.role, member.roleIcon)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+          ${getRoleHeader('Backdoor')}
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.mission}</div>
+          </div>
+        </div>
+      `;
+
+    case "installer_mission":
+      return `
+        ${warningHeader}
+        <div class="mt-6">
+          ${getRoleHeader('Backdoor Installer')}
+          <div class="bg-gray-800/50 rounded-lg border border-yellow-900/50 p-4 space-y-4">
+            <h5 class="text-yellow-400 font-medium mb-2">Backdoor ในทีมของคุณ</h5>
+            <div class="bg-gray-900/50 rounded-lg p-3 border border-yellow-900/30">
+              <div class="flex items-center gap-2">
+                <span class="text-red-400">${getRoleEmoji('Backdoor', roleData.roleIcon)}</span>
+                <span class="text-white">${data.backdoorMember}</span>
+              </div>
+            </div>
+
+            <!-- Mission Info -->
+            <div class="border-t border-yellow-900/30 pt-4">
+              <h5 class="text-yellow-400 font-medium mb-2">ภารกิจที่ต้องช่วย Backdoor</h5>
+              <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.mission}</div>
+            </div>
           </div>
         </div>
       `;
@@ -909,36 +924,9 @@ function renderRoleSpecificData(roleData) {
       return `
         ${warningHeader}
         <div class="mt-6">
-          <h4 class="text-lg font-semibold text-white mb-3">
-            <span class="text-yellow-400">&gt;</span> Legacy Code Mission ${getRoleEmoji(roleData.role, roleData.roleIcon)}
-          </h4>
+          ${getRoleHeader('Legacy Code')}
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
-            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
-          </div>
-        </div>
-      `;
-
-    case "backdoor_installer":
-      return `
-        ${warningHeader}
-        <div class="mt-6">
-          <h4 class="text-lg font-semibold text-white mb-3">
-            <span class="text-yellow-400">&gt;</span> Backdoor Installer Information ${getRoleEmoji(roleData.role, roleData.roleIcon)}
-          </h4>
-          <div class="bg-gray-800/50 rounded-lg border border-yellow-900/50 p-4 space-y-4">
-            <h5 class="text-yellow-400 font-medium mb-2">Backdoor ในทีมของคุณ</h5>
-              <div class="bg-gray-900/50 rounded-lg p-3 border border-yellow-900/30">
-                <div class="flex items-center gap-2">
-                  <span class="text-red-400">${getRoleEmoji('Backdoor', roleData.backdoorIcon)}</span>
-                  <span class="text-white">${roleData.backdoorMember}</span>
-                </div>
-              </div>
-
-            <!-- Mission Info -->
-            <div class="border-t border-yellow-900/30 pt-4">
-              <h5 class="text-yellow-400 font-medium mb-2">ภารกิจที่ต้องช่วย Backdoor</h5>
-              <div class="text-gray-200 whitespace-pre-line leading-relaxed">${roleData.mission}</div>
-            </div>
+            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.mission}</div>
           </div>
         </div>
       `;
@@ -947,15 +935,13 @@ function renderRoleSpecificData(roleData) {
       return `
         ${warningHeader}
         <div class="mt-6">
-          <h4 class="text-lg font-semibold text-white mb-3">
-            <span class="text-yellow-400">&gt;</span> รายชื่อผู้ต้องสงสัย ${getRoleEmoji('Staff Engineer', roleData.roleIcon)}
-          </h4>
+          ${getRoleHeader('Staff Engineer')}
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4">
             <p class="text-gray-300 mb-4">
               เพราะเก่งแล้วเลยรู้เยอะ มีชื่อคนน่าสงสัย 4 คน คนนึงในนี้จะเป็น Backdoor อีกคนจะเป็น Legacy Code ที่เหลือเป็นใครไม่รู้ เดาเอานะ สู้ๆ
             </p>
             <div class="space-y-2">
-              ${roleData.suspects.map((suspect, index) => `
+              ${data.suspects.map((suspect, index) => `
                 <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">
                   <div class="flex items-center gap-3">
                     <span class="text-gray-400 font-mono">#${index + 1}</span>

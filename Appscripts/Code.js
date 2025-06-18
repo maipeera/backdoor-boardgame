@@ -484,8 +484,10 @@ function getRoleData(e) {
         const missionIdx = teamMissionHeaders.indexOf("backdoor-mission-id");
         if (missionIdx !== -1) {
           roleSpecificData = {
-            type: "backdoor_mission",
-            mission: teamMissionData[teamMissionRow][missionIdx]
+            specialData: {
+              type: "backdoor_mission",
+              mission: teamMissionData[teamMissionRow][missionIdx]
+            }
           };
         }
       }
@@ -493,12 +495,26 @@ function getRoleData(e) {
       
     case "Backdoor Installer":
       if (teamMissionRow !== -1) {
-        const missionIdx = teamMissionHeaders.indexOf("installer-mission");
-        if (missionIdx !== -1) {
-          roleSpecificData = {
-            type: "installer_mission",
-            mission: teamMissionData[teamMissionRow][missionIdx]
-          };
+        const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+        const missionId = teamMissionData[teamMissionRow][missionIdIdx];
+        // Find the backdoor member from teamMembers array
+        const backdoorMember = teamMembers.find(member => member.roleId === 1); // Role ID 1 is Backdoor
+        
+        if (missionId && backdoorMember) {
+          // Find the mission row to get the installer hint
+          const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
+          if (missionRow !== -1) {
+            const installerHintIdx = missionHeaders.indexOf("installer-hint");
+            if (installerHintIdx !== -1) {
+              roleSpecificData = {
+                specialData: {
+                  type: "installer_mission",
+                  mission: missionData[missionRow][installerHintIdx],
+                  backdoorMember: backdoorMember.name
+                }
+              };
+            }
+          }
         }
       }
       break;
@@ -508,8 +524,10 @@ function getRoleData(e) {
         const missionIdx = teamMissionHeaders.indexOf("legacy-mission");
         if (missionIdx !== -1) {
           roleSpecificData = {
-            type: "legacy_mission",
-            mission: teamMissionData[teamMissionRow][missionIdx]
+            specialData: {
+              type: "legacy_mission",
+              mission: teamMissionData[teamMissionRow][missionIdx]
+            }
           };
         }
       }
@@ -529,8 +547,10 @@ function getRoleData(e) {
         }
         if (suspects.length > 0) {
           roleSpecificData = {
-            type: "se_suspects",
-            suspects: suspects
+            specialData: {
+              type: "se_suspects",
+              suspects: suspects
+            }
           };
         }
       }
