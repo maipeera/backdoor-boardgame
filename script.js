@@ -711,78 +711,9 @@ async function fetchRole() {
                       <span>Refresh</span>
                     </button>
                   </div>
-
-                  ${parseInt(appConfig.active_voting_round) !== -1 ? `
-                    <div class="space-y-4">
-                      ${[1, 2, 3].map(round => `
-                        <div class="bg-gray-700/50 rounded-lg p-4">
-                          <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-lg font-semibold text-white">รอบที่ ${round}</h3>
-                            <div class="flex flex-col items-end">
-                              ${parseInt(appConfig.active_voting_round) === round ? 
-                                '<span class="text-sm font-medium text-green-400">กำลังเปิดให้โหวต</span>' : 
-                                parseInt(appConfig.active_voting_round) < round ? 
-                                  '<span class="text-sm font-medium text-gray-400">ยังไม่เปิดให้โหวต</span>' :
-                                  '<span class="text-sm font-medium text-gray-400">ปิดการโหวตแล้ว</span>'
-                              }
-                              ${data.vote[`vote-${round}-timestamp`] ? 
-                                `<span class="text-xs text-gray-500 mt-1">โหวตเมื่อ ${new Date(data.vote[`vote-${round}-timestamp`]).toLocaleString()}</span>` : 
-                                ''
-                              }
-                            </div>
-                          </div>
-                          <div class="flex gap-2">
-                            <select 
-                              id="vote-${round}"
-                              class="flex-1 bg-gray-800 text-white rounded-lg p-2 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              ${parseInt(appConfig.active_voting_round) !== round ? 'disabled' : ''}
-                            >
-                              <option value="" ${!data.vote[`vote-${round}`] ? 'selected' : ''}>-- เลือกผู้เล่น --</option>
-                              ${data.team.members
-                                .filter(member => member !== currentUser) // Exclude current user
-                                .map(member => `
-                                  <option 
-                                    value="${member}" 
-                                    ${data.vote[`vote-${round}`] === member ? 'selected' : ''}
-                                  >
-                                    ${member}
-                                  </option>
-                                `).join('')}
-                            </select>
-                            <button 
-                              onclick="submitVote(${round})" 
-                              class="bg-blue-600 text-white font-medium px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
-                              ${parseInt(appConfig.active_voting_round) !== round ? 'disabled' : ''}
-                            >
-                              บันทึก
-                            </button>
-                          </div>
-                        </div>
-                      `).join('')}
-                    </div>
-
-                    <!-- Vote Results Section -->
-                    <div class="mt-8">
-                      <h3 class="text-xl font-semibold text-white mb-4">Ranking โหวตกำจัด Backdoor 🗡️</h3>
-                      <div id="voteResultsLoading" class="text-center py-8">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
-                        <p class="text-gray-400 mt-2">กำลังโหลดผลโหวต...</p>
-                      </div>
-                      <div id="voteResultsContent" class="hidden">
-                        <div class="bg-gray-700/50 rounded-lg p-4">
-                          <div class="space-y-2" id="voteResultsList">
-                            <!-- Vote results will be populated here -->
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ` : `
-                    <!-- Placeholder View -->
-                    <div class="text-center py-12">
-                      <div class="text-gray-700 mb-4 text-6xl">🍺🌼🌾🍶</div>
-                      <p class="text-gray-500">การโหวตจะเปิดในวัน outing\nถ้าวันนี้ outing แล้วยังไม่เปิด\nดื่มน้ำเก๊กฮวยเย็นๆรอก่อนนะ...</p>
-                    </div>
-                  `}
+                  <div id="votingRoundsOuterContainer">
+                    ${generateVotingInterfaceOuterHTML(data)}
+                  </div>
                 ` : `
                   <!-- Placeholder View -->
                   <div class="text-center py-12">
@@ -1637,13 +1568,39 @@ async function refreshVotingData() {
         <span>Refreshing...</span>
       `;
 
+      // Get cached credentials for re-fetching role data
+      const cachedCredentials = getCachedUserCredentials();
+      if (!cachedCredentials) {
+        throw new Error('No cached credentials found. Please login again.');
+      }
+
+      // Show loading state
+      showVotingRoundsLoading();
+
       // Refresh config first
       appConfig = await apiRequest({ get_config: true });
+      console.log('Manual refresh config complete');
       
-      // Then refresh voting results
-      updateVoteResultsDisplay(null); // Show loading state
-      const results = await fetchVoteResults();
-      updateVoteResultsDisplay(results);
+      if (appConfig.active_voting_round !== -1) {
+        console.log('Voting round is active');
+        console.log('Refreshing voting data...');
+        // Re-fetch role data to get updated voting interface
+        const data = await apiRequest({
+          name: cachedCredentials.name,
+          pin: cachedCredentials.pin
+        });
+
+        // Update voting rounds with new data
+        updateVotingRounds(data);
+      
+        // Then refresh voting results
+        updateVoteResultsDisplay(null); // Show loading state
+        const results = await fetchVoteResults();
+        updateVoteResultsDisplay(results);
+      } else {
+        updateVotingRounds(null);
+      }
+      
 
       // Show success state briefly
       button.innerHTML = `
@@ -1675,6 +1632,7 @@ async function refreshVotingData() {
         button.innerHTML = originalContent;
       }, 2000);
     }
+    alert('เกิดข้อผิดพลาดในการรีเฟรชข้อมูล: ' + error.message);
   }
 }
 
@@ -1977,4 +1935,117 @@ async function fetchVoteResults() {
     console.error('Error fetching vote results:', error);
     return null;
   }
+}
+
+// Function to generate HTML for voting rounds
+function generateVotingRoundsHTML(data) {
+  return [1, 2, 3].map(round => `
+    <div class="bg-gray-700/50 rounded-lg p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold text-white">รอบที่ ${round}</h3>
+        <div class="flex flex-col items-end">
+          ${parseInt(appConfig.active_voting_round) === round ? 
+            '<span class="text-sm font-medium text-green-400">กำลังเปิดให้โหวต</span>' : 
+            parseInt(appConfig.active_voting_round) < round ? 
+              '<span class="text-sm font-medium text-gray-400">ยังไม่เปิดให้โหวต</span>' :
+              '<span class="text-sm font-medium text-gray-400">ปิดการโหวตแล้ว</span>'
+          }
+          ${data.vote[`vote-${round}-timestamp`] ? 
+            `<span class="text-xs text-gray-500 mt-1">โหวตเมื่อ ${new Date(data.vote[`vote-${round}-timestamp`]).toLocaleString()}</span>` : 
+            ''
+          }
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <select 
+          id="vote-${round}"
+          class="flex-1 bg-gray-800 text-white rounded-lg p-2 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          ${parseInt(appConfig.active_voting_round) !== round ? 'disabled' : ''}
+        >
+          <option value="" ${!data.vote[`vote-${round}`] ? 'selected' : ''}>-- เลือกผู้เล่น --</option>
+          ${data.team.members
+            .filter(member => member !== currentUser) // Exclude current user
+            .map(member => `
+              <option 
+                value="${member}" 
+                ${data.vote[`vote-${round}`] === member ? 'selected' : ''}
+              >
+                ${member}
+              </option>
+            `).join('')}
+        </select>
+        <button 
+          onclick="submitVote(${round})" 
+          class="bg-blue-600 text-white font-medium px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+          ${parseInt(appConfig.active_voting_round) !== round ? 'disabled' : ''}
+        >
+          บันทึก
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Function to update voting rounds with new data
+function updateVotingRounds(data) {
+  const container = document.getElementById('votingRoundsOuterContainer');
+  if (!container) return;
+  container.innerHTML = generateVotingInterfaceOuterHTML(data);
+}
+
+function generateVotingInterfaceOuterHTML(data) {
+  return `
+    ${parseInt(appConfig.active_voting_round) !== -1 ? 
+      generateVotingInterfaceHTML(data)
+    : generateVotingPlaceholderHTML()}
+  `;
+}
+
+// Function to generate voting interface HTML
+function generateVotingInterfaceHTML(data) {
+  return `
+    <div id="votingRoundsContainer" class="space-y-4">
+      ${generateVotingRoundsHTML(data)}
+    </div>
+
+    <!-- Vote Results Section -->
+    <div class="mt-8">
+      <h3 class="text-xl font-semibold text-white mb-4">Ranking โหวตกำจัด Backdoor 🗡️</h3>
+      <div id="voteResultsLoading" class="text-center py-8">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+        <p class="text-gray-400 mt-2">กำลังโหลดผลโหวต...</p>
+      </div>
+      <div id="voteResultsContent" class="hidden">
+        <div class="bg-gray-700/50 rounded-lg p-4">
+          <div class="space-y-2" id="voteResultsList">
+            <!-- Vote results will be populated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Function to show loading state in voting rounds container
+function showVotingRoundsLoading() {
+  const container = document.getElementById('votingRoundsOuterContainer');
+  if (container) {
+    container.innerHTML = `
+      <div class="text-center py-8">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+        <p class="text-gray-400 mt-2">กำลังโหลดข้อมูลการโหวต...</p>
+      </div>
+    `;
+  }
+}
+
+// Function to generate placeholder HTML for voting interface
+function generateVotingPlaceholderHTML() {
+  return `
+    <!-- Placeholder View -->
+    <div class="text-center py-12">
+      <div class="text-gray-700 mb-4 text-6xl">🍺🍺🍺</div>
+      <p class="text-gray-500">การโหวตจะเปิดในวัน outing\nถ้าวันนี้ outing แล้วยังไม่เปิด\nดื่มน้ำเก๊กฮวยเย็นๆรอก่อนนะ...</p>
+    </div>
+  `;
 }
