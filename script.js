@@ -731,12 +731,12 @@ async function fetchRole() {
               <div class="flex justify-around">
                 <button 
                   onclick="switchTab('team')" 
-                  class="tab-button active flex-1 py-3 px-4 text-center focus:outline-none group"
+                  class="tab-button active flex-1 py-2 px-3 text-center focus:outline-none group"
                   id="teamTab"
                 >
                   <div class="flex flex-col items-center">
-                    <span class="text-xl mb-1">👥</span>
-                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">ทีม ${data.team}</span>
+                    <span class="text-xl mb-1">📷</span>
+                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">ทีม ${data.team.name}</span>
                   </div>
                 </button>
                 <button 
@@ -745,7 +745,7 @@ async function fetchRole() {
                   id="roleTab"
                 >
                   <div class="flex flex-col items-center">
-                    <span class="text-xl mb-1">🧑‍💻</span>
+                    <span class="text-xl mb-1">🪪</span>
                     <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">บทบาท</span>
                   </div>
                 </button>
@@ -755,8 +755,8 @@ async function fetchRole() {
                   id="votingTab"
                 >
                   <div class="flex flex-col items-center">
-                    <span class="text-xl mb-1">🎮</span>
-                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">โหวตเกม</span>
+                    <span class="text-xl mb-1">🗳️</span>
+                    <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">จับโจร</span>
                   </div>
                 </button>
               </div>
@@ -910,7 +910,17 @@ function renderRoleSpecificData(roleData) {
           </div>
         </div>
       `;
-
+    case "member_hint":
+      return `
+        ${warningHeader}
+        <div class="mt-6">
+          ${getRoleHeader('Team Member')}
+          <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
+            <h5 class="text-yellow-400 font-medium mb-2">คำแนะนำจากทีมของคุณ</h5>
+            <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.hint}</div>
+          </div>
+        </div>
+      `;
     case "em_team_info":
       return `
         ${warningHeader}
@@ -1098,7 +1108,7 @@ function updateTeamMissionHTML(data) {
           <h3 class="text-lg font-semibold text-white">ภารกิจทีม ${data.team.name}</h3>
         </div>
         <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
-          <p class="text-gray-200 whitespace-pre-line leading-relaxed">ภารกิจทีมคือการให้อย่างน้อยหนึ่งคนในทีมถ่ายรูปตามข้อกำหนดด้านล่าง จากนั้นกดปุ่มส่งรูปเข้ามาในระบบ จะกดส่งมากกว่าหนึ่งคนก็ได้ แต่ว่ายิ่งส่งรูปเยอะมีโอกาสที่จะชนะรางวัลมากขึ้นด้วยนะเอาจริงๆ</p>
+          <p class="text-gray-200 whitespace-pre-line leading-relaxed">${appConfig.team_intro}</p>
           <div class="border-t border-gray-700 pt-4">
             <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.team.mission}</p>
           </div>

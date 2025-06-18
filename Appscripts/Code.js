@@ -462,6 +462,7 @@ function getRoleData(e) {
         const teamMissionIdx = missionHeaders.indexOf("team-mission");
         const backdoorHintIdx = missionHeaders.indexOf("backdoor-hint");
         const installerHintIdx = missionHeaders.indexOf("installer-hint");
+        const memberHintIdx = missionHeaders.indexOf("member-hint");
         
         // Get appropriate mission based on role
         if (roleName === "Backdoor" && backdoorHintIdx !== -1) {
@@ -641,6 +642,26 @@ function getRoleData(e) {
         }
       }
       break;
+      case "Team Member":
+        if (teamMissionRow !== -1) {
+          const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+          const missionId = teamMissionData[teamMissionRow][missionIdIdx];
+          if (missionId) {
+            const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
+            if (missionRow !== -1) {
+              const memberHintIdx = missionHeaders.indexOf("member-hint");
+              if (memberHintIdx !== -1) {
+                roleSpecificData = {
+                  specialData: {
+                    type: "member_hint",
+                    hint: missionData[missionRow][memberHintIdx]
+                  }
+                };
+              }
+            }
+          }
+        }
+        break;
   }
   
   const response = {
