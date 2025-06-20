@@ -682,6 +682,17 @@ async function fetchRole() {
             <!-- Voting Tab Content -->
             <div id="votingContent" class="space-y-4 hidden">
               <div class="max-w-4xl mx-auto">
+                ${appConfig.voting_warning_msg ? `
+                  <div class="mb-4">
+                    <div class="bg-yellow-900/20 rounded-lg border border-yellow-700/50 p-4">
+                      <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xl">⚠️</span>
+                        <h3 class="text-lg font-semibold text-yellow-400">คำเตือน</h3>
+                      </div>
+                      <p class="text-gray-300 whitespace-pre-line leading-relaxed">${appConfig.voting_warning_msg}</p>
+                    </div>
+                  </div>
+                ` : ''}
                 ${currentUser ? `
                   <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">

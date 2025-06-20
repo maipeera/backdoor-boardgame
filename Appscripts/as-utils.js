@@ -208,7 +208,7 @@ function regenerateGroupsAndRoles() {
       const teamMembers = playerData.slice(1) // Skip header
         .filter(row => {
           const roleId = parseInt(row[roleIdx]); // Convert to number for strict comparison
-          return row[teamIdx] === team && roleId !== 7 && roleId !== 4; // Exclude AI (7) and SE (4)
+          return row[teamIdx] === team && roleId !== 7 && roleId !== 4 && roleId !== 6; // Exclude AI (7) and SE (4) and Key (6)
         });
   
       Logger.log(`Eligible team members: ${JSON.stringify(teamMembers)}`);
