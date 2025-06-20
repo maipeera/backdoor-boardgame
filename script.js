@@ -1118,6 +1118,17 @@ function updateTeamMissionHTML(data) {
         </div>
         <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
           <p class="text-gray-200 whitespace-pre-line leading-relaxed">${appConfig.team_intro}</p>
+          ${appConfig.warning_msg ? `
+            <div class="border-t border-gray-700 pt-4 mb-4">
+              <div class="bg-yellow-900/20 rounded-lg border border-yellow-700/50 p-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-xl">⚠️</span>
+                  <h3 class="text-lg font-semibold text-yellow-400">คำเตือน</h3>
+                </div>
+                <p class="text-gray-300 whitespace-pre-line leading-relaxed">${appConfig.warning_msg}</p>
+              </div>
+            </div>
+          ` : ''}
           <div class="border-t border-gray-700 pt-4">
             <p class="text-gray-200 whitespace-pre-line leading-relaxed">${data.team.mission}</p>
           </div>
