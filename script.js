@@ -687,9 +687,9 @@ async function fetchRole() {
                     <div class="bg-yellow-900/20 rounded-lg border border-yellow-700/50 p-4">
                       <div class="flex items-center gap-2 mb-2">
                         <span class="text-xl">⚠️</span>
-                        <h3 class="text-lg font-semibold text-yellow-400">คำเตือน</h3>
+                        <h3 class="text-lg font-semibold text-yellow-400">อ่านสักนิดจิตแจ่มใส</h3>
                       </div>
-                      <p class="text-gray-300 whitespace-pre-line leading-relaxed">${appConfig.voting_warning_msg}</p>
+                      <p class="text-gray-300 whitespace-pre-line leading-relaxed text-sm">${appConfig.voting_warning_msg}</p>
                     </div>
                   </div>
                 ` : ''}
@@ -1583,7 +1583,7 @@ async function refreshConfig() {
 async function fetchVoteResults() {
   try {
     const data = await apiRequest({
-      voteResult: true,
+      vote_progress: true,
       team: currentTeam
     });
     console.log('Voting results received:', data);
@@ -1693,49 +1693,98 @@ function updateVoteResultsDisplay(results) {
   // Get AI members from cache
   const aiMembers = getCachedData('aiMembers') || [];
 
-  // Sort members by vote count in descending order
+  // Sort members by total votes received in descending order
   const sortedMembers = Object.entries(results)
     .filter(([name]) => !aiMembers.includes(name)) // Exclude AI members using cached data
-    .sort(([, a], [, b]) => b - a);
+    .sort(([, a], [, b]) => b.totalVotesReceived - a.totalVotesReceived);
 
   // Get the maximum votes for scaling
-  const maxVotes = Math.max(...sortedMembers.map(([, votes]) => votes));
+  const maxVotes = Math.max(...sortedMembers.map(([, data]) => data.totalVotesReceived));
 
   // Create the HTML for vote results
-  const resultsHTML = sortedMembers.map(([name, votes], index) => {
-    // Calculate percentage for bar width
-    const percentage = maxVotes > 0 ? (votes / maxVotes) * 100 : 0;
+  const resultsHTML = sortedMembers.map(([name, data], index) => {
+    // Calculate percentage for each round's bar width
+    const round1Percentage = maxVotes > 0 ? (data.votesReceived.round1 / maxVotes) * 100 : 0;
+    const round2Percentage = maxVotes > 0 ? (data.votesReceived.round2 / maxVotes) * 100 : 0;
+    const round3Percentage = maxVotes > 0 ? (data.votesReceived.round3 / maxVotes) * 100 : 0;
     
     return `
-      <div class="relative flex items-center mb-2 h-12">
+      <div class="relative flex items-center mb-4 h-16">
         <!-- Rank Number -->
         <div class="absolute left-0 w-8 text-center">
           <span class="text-gray-400 text-sm">#${index + 1}</span>
         </div>
         
         <!-- Name and Votes -->
-        <div class="absolute left-10 right-0 flex items-center h-full">
-          <!-- Bar Background -->
-          <div class="absolute right-0 h-full bg-gray-700 rounded-lg" style="width: ${percentage}%">
-            <!-- Gradient Overlay -->
-            <div class="absolute inset-0 bg-gradient-to-l from-red-500/20 to-transparent rounded-lg"></div>
-          </div>
-          
-          <!-- Name (left aligned) -->
-          <div class="absolute left-2 z-10">
+        <div class="absolute left-10 right-0 flex flex-col h-full">
+          <!-- Name and Total -->
+          <div class="flex justify-between items-center mb-1">
             <span class="text-white font-medium">${name}</span>
+            <span class="text-gray-300 font-medium">${data.totalVotesReceived} votes</span>
           </div>
           
-          <!-- Vote Count (right aligned) -->
-          <div class="absolute right-2 z-10">
-            <span class="text-gray-300 font-medium">${votes}</span>
+          <!-- Stacked Bar Graph -->
+          <div class="relative h-6 w-full bg-gray-800 rounded-lg overflow-hidden">
+            <!-- Round 1 Bar -->
+            ${round1Percentage > 0 ? `
+              <div class="absolute left-0 h-full bg-blue-600 rounded-l-lg" 
+                   style="width: ${round1Percentage}%">
+                ${data.votesReceived.round1 > 0 ? `
+                  <span class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                    ${data.votesReceived.round1}
+                  </span>
+                ` : ''}
+              </div>
+            ` : ''}
+            
+            <!-- Round 2 Bar -->
+            ${round2Percentage > 0 ? `
+              <div class="absolute h-full bg-green-600" 
+                   style="left: ${round1Percentage}%; width: ${round2Percentage}%">
+                ${data.votesReceived.round2 > 0 ? `
+                  <span class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                    ${data.votesReceived.round2}
+                  </span>
+                ` : ''}
+              </div>
+            ` : ''}
+            
+            <!-- Round 3 Bar -->
+            ${round3Percentage > 0 ? `
+              <div class="absolute h-full bg-purple-600 rounded-r-lg" 
+                   style="left: ${round1Percentage + round2Percentage}%; width: ${round3Percentage}%">
+                ${data.votesReceived.round3 > 0 ? `
+                  <span class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                    ${data.votesReceived.round3}
+                  </span>
+                ` : ''}
+              </div>
+            ` : ''}
           </div>
         </div>
       </div>
     `;
   }).join('');
 
-  listElement.innerHTML = resultsHTML;
+  // Add legend
+  const legendHTML = `
+    <div class="flex items-center justify-center gap-4 mb-4 text-sm">
+      <div class="flex items-center gap-1">
+        <div class="w-3 h-3 bg-blue-600 rounded"></div>
+        <span class="text-gray-300">Round 1</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <div class="w-3 h-3 bg-green-600 rounded"></div>
+        <span class="text-gray-300">Round 2</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <div class="w-3 h-3 bg-purple-600 rounded"></div>
+        <span class="text-gray-300">Round 3</span>
+      </div>
+    </div>
+  `;
+
+  listElement.innerHTML = legendHTML + resultsHTML;
   loadingElement.classList.add('hidden');
   contentElement.classList.remove('hidden');
 }
@@ -1969,7 +2018,7 @@ async function optimizeImage(file) {
 async function fetchVoteResults() {
   try {
     const data = await apiRequest({
-      voteResult: 'true',
+      vote_progress: 'true',
       team: currentTeam
     });
     return data;

@@ -49,7 +49,7 @@ function testShowRole() {
 function testVoteResult() {
   const fakeEvent = {
     parameter: {
-      voteResult: 'true',
+      vote_progress: 'true',
       team: 'A'
     }
   };
@@ -154,7 +154,7 @@ const TEAM_DRIVE_FOLDERS = {
   'F': '1FN7YnCEy1tsUwqRiFsEspDkrTYWQhsVu'
 };
 
-function getTeamVoteCounts(teamName) {
+function getTeamVoteProgress(teamName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const playerSheet = ss.getSheetByName('Player');
   const data = playerSheet.getDataRange().getValues();
@@ -162,17 +162,30 @@ function getTeamVoteCounts(teamName) {
   
   const nameIdx = headers.indexOf("Name");
   const teamIdx = headers.indexOf("Team");
-  const votedCountIdx = headers.indexOf("voted_count");
+  const vote1Idx = headers.indexOf("vote-1");
+  const vote2Idx = headers.indexOf("vote-2");
+  const vote3Idx = headers.indexOf("vote-3");
   
-  if (nameIdx === -1 || teamIdx === -1 || votedCountIdx === -1) {
+  if (nameIdx === -1 || teamIdx === -1 || 
+      vote1Idx === -1 || vote2Idx === -1 || vote3Idx === -1) {
     throw new Error('Required columns not found');
   }
   
-  // Get all members in the team and their vote counts
+  // Get all members in the team and their vote data
   const teamVotes = {};
   data.slice(1).forEach(row => {
     if (row[teamIdx] === teamName) {
-      teamVotes[row[nameIdx]] = row[votedCountIdx] || 0;
+      // Count votes received for each round
+      const votesReceived = {
+        round1: data.slice(1).filter(r => r[vote1Idx] === row[nameIdx]).length,
+        round2: data.slice(1).filter(r => r[vote2Idx] === row[nameIdx]).length,
+        round3: data.slice(1).filter(r => r[vote3Idx] === row[nameIdx]).length
+      };
+
+      teamVotes[row[nameIdx]] = {
+        votesReceived,
+        totalVotesReceived: votesReceived.round1 + votesReceived.round2 + votesReceived.round3
+      };
     }
   });
   
@@ -345,7 +358,7 @@ function doGet(e) {
     }
 
     // Handle vote result request
-    if (params.voteResult === 'true') {
+    if (params.vote_progress === 'true') {
       const team = params.team;
             if (!team) {
         return output.setContent(JSON.stringify({
@@ -353,8 +366,8 @@ function doGet(e) {
         }));
       }
       
-      const voteResults = getTeamVoteCounts(team);
-      return output.setContent(JSON.stringify(voteResults));
+      const voteProgress = getTeamVoteProgress(team);
+      return output.setContent(JSON.stringify(voteProgress));
     }
 
     // Handle vote result request
