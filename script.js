@@ -2101,7 +2101,17 @@ function generateVotingInterfaceHTML(data) {
 
     <!-- Vote Results Section -->
     <div class="mt-8">
-      <h3 class="text-lg font-semibold text-white mb-4">🗡️ อันดับถูกโหวต Backdoor</h3>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-white">🗡️ อันดับถูกโหวต Backdoor</h3>
+        <button 
+          onclick="refreshVoteResults()"
+          class="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+        </button>
+      </div>
       <div id="voteResultsLoading" class="text-center py-8">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
         <p class="text-gray-400 mt-2">กำลังโหลดผลโหวต...</p>
@@ -2290,4 +2300,58 @@ function showDetailedVoteResults() {
         <p class="text-red-500 mt-4">เกิดข้อผิดพลาด: ${error.message}</p>
       `;
     });
+}
+
+// Function to refresh only vote results
+async function refreshVoteResults() {
+  try {
+    // Get the refresh button
+    const button = document.querySelector('button[onclick="refreshVoteResults()"]');
+    if (button) {
+      // Disable button and show loading state
+      button.disabled = true;
+      const originalContent = button.innerHTML;
+      button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+      `;
+
+      // Show loading state
+      updateVoteResultsDisplay(null);
+
+      // Fetch new results
+      const results = await fetchVoteResults();
+      updateVoteResultsDisplay(results);
+
+      // Show success state briefly
+      button.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      `;
+      
+      // Reset button after delay
+      setTimeout(() => {
+        button.innerHTML = originalContent;
+        button.disabled = false;
+      }, 1000);
+    }
+  } catch (error) {
+    console.error('Error refreshing vote results:', error);
+    if (button) {
+      button.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      `;
+      button.disabled = false;
+      
+      // Reset button after delay
+      setTimeout(() => {
+        button.innerHTML = originalContent;
+      }, 2000);
+    }
+    alert('เกิดข้อผิดพลาดในการรีเฟรชข้อมูล: ' + error.message);
+  }
 }
