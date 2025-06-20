@@ -568,11 +568,14 @@ function getRoleData(e) {
             }
           }
         }
+        // Find the Key member from teamMembers array
+        const keyMember = teamMembers.find(member => member.roleId === 6); // Role ID 6 is Key
         if (suspects.length > 0) {
           roleSpecificData = {
             specialData: {
               type: "se_suspects",
-              suspects: suspects
+              suspects: suspects,
+              keyMember: keyMember ? keyMember.name : null
             }
           };
         }
@@ -642,26 +645,29 @@ function getRoleData(e) {
         }
       }
       break;
-      case "Team Member":
-        if (teamMissionRow !== -1) {
-          const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
-          const missionId = teamMissionData[teamMissionRow][missionIdIdx];
-          if (missionId) {
-            const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
-            if (missionRow !== -1) {
-              const memberHintIdx = missionHeaders.indexOf("member-hint");
-              if (memberHintIdx !== -1) {
-                roleSpecificData = {
-                  specialData: {
-                    type: "member_hint",
-                    hint: missionData[missionRow][memberHintIdx]
-                  }
-                };
-              }
+    case "Team Member":
+      if (teamMissionRow !== -1) {
+        const missionIdIdx = teamMissionHeaders.indexOf("mission-id");
+        const missionId = teamMissionData[teamMissionRow][missionIdIdx];
+        // Find the Key member from teamMembers array
+        const keyMember = teamMembers.find(member => member.roleId === 6); // Role ID 6 is Key
+        if (missionId) {
+          const missionRow = missionData.findIndex((row, idx) => idx > 0 && row[missionHeaders.indexOf("id")] === missionId);
+          if (missionRow !== -1) {
+            const memberHintIdx = missionHeaders.indexOf("member-hint");
+            if (memberHintIdx !== -1) {
+              roleSpecificData = {
+                specialData: {
+                  type: "member_hint",
+                  hint: missionData[missionRow][memberHintIdx],
+                  keyMember: keyMember ? keyMember.name : null
+                }
+              };
             }
           }
         }
-        break;
+      }
+      break;
   }
   
   const response = {

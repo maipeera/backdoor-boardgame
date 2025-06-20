@@ -882,6 +882,17 @@ function renderRoleSpecificData(roleData) {
                 </div>
               `).join('')}
             </div>
+            ${data.keyMember ? `
+              <div class="mt-4 pt-4 border-t border-gray-700">
+                <h5 class="text-yellow-400 font-medium mb-2">Key ในทีมของคุณ</h5>
+                <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">
+                  <div class="flex items-center gap-3">
+                    <span class="text-yellow-400">${getRoleEmoji('Key')}</span>
+                    <span class="text-white">${data.keyMember}</span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
       `;
@@ -905,6 +916,17 @@ function renderRoleSpecificData(roleData) {
           <div class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 space-y-4">
             <h5 class="text-yellow-400 font-medium mb-2">คำแนะนำจากทีมของคุณ</h5>
             <div class="text-gray-200 whitespace-pre-line leading-relaxed">${data.hint}</div>
+            ${data.keyMember ? `
+              <div class="mt-4 pt-4 border-t border-gray-700">
+                <h5 class="text-yellow-400 font-medium mb-2">Key ในทีมของคุณ</h5>
+                <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">
+                  <div class="flex items-center gap-3">
+                    <span class="text-yellow-400">${getRoleEmoji('Key')}</span>
+                    <span class="text-white">${data.keyMember}</span>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
       `;
