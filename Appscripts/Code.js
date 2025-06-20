@@ -179,6 +179,84 @@ function getTeamVoteCounts(teamName) {
   return teamVotes;
 }
 
+function getTeamVoteResults(team, aiName, pin) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const playerSheet = ss.getSheetByName('Player');
+  const pinSheet = ss.getSheetByName('PIN');
+  
+  // Get all data and headers
+  const data = playerSheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  // Get column indices
+  const nameIdx = headers.indexOf("Name");
+  const teamIdx = headers.indexOf("Team");
+  const roleIdx = headers.indexOf("Role");
+  const vote1Idx = headers.indexOf("vote-1");
+  const vote2Idx = headers.indexOf("vote-2");
+  const vote3Idx = headers.indexOf("vote-3");
+  const winnableIdx = headers.indexOf("winnable_by_vote");
+  const scoreIdx = headers.indexOf("voting_score");
+  
+  // Find AI's team
+  let aiTeam = '';
+  let aiFound = false;
+  data.slice(1).forEach(row => {
+    if (row[nameIdx] === aiName) {
+      aiTeam = row[teamIdx];
+      aiFound = true;
+    }
+  });
+  
+  // Validate AI exists and belongs to the requested team
+  if (!aiFound || aiTeam !== team) {
+    return {
+      success: false,
+      error: "แอบโกงปะ แย่นะ"
+    };
+  }
+  
+  // Validate PIN
+  const isValidPin = validatePin(pinSheet, aiName, pin);
+  if (!isValidPin) {
+    return {
+      success: false,
+      error: "แอบโกงปะ แย่นะ"
+    };
+  }
+  
+  // Get all team members data (excluding AI)
+  const teamMembers = data.slice(1)
+    .filter(row => row[teamIdx] === team && row[roleIdx] !== "7") // Exclude role ID 7 (AI)
+    .map(row => ({
+      name: row[nameIdx],
+      votes: {
+        "vote-1": row[vote1Idx] || "",
+        "vote-2": row[vote2Idx] || "",
+        "vote-3": row[vote3Idx] || ""
+      },
+      winnable: row[winnableIdx] === true || row[winnableIdx] === "TRUE" || row[winnableIdx] === 1,
+      score: row[scoreIdx] || 0
+    }));
+  
+  // Separate into winnable and not winnable groups
+  const winnableMembers = teamMembers
+    .filter(member => member.winnable)
+    .sort((a, b) => b.score - a.score); // Sort by score descending
+  
+  const notWinnableMembers = teamMembers
+    .filter(member => !member.winnable)
+    .sort((a, b) => b.score - a.score); // Sort by score descending
+  
+  return {
+    success: true,
+    data: {
+      winnable: winnableMembers,
+      not_winnable: notWinnableMembers
+    }
+  };
+}
+
 function doGet(e) {
   const output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
@@ -226,13 +304,30 @@ function doGet(e) {
     // Handle vote result request
     if (params.voteResult === 'true') {
       const team = params.team;
-      if (!team) {
+            if (!team) {
         return output.setContent(JSON.stringify({
-          error: 'Team parameter is required'
+                    error: 'Team parameter is required'
         }));
       }
       
       const voteResults = getTeamVoteCounts(team);
+      return output.setContent(JSON.stringify(voteResults));
+    }
+
+    // Handle vote result request
+    if (params.team_vote_result === 'true') {
+      const team = params.team;
+      const aiName = params.ai_name;
+      const pin = params.pin;
+      
+      if (!team || !aiName || !pin) {
+        return output.setContent(JSON.stringify({
+          success: false,
+          error: 'Missing required parameters'
+        }));
+      }
+      
+      const voteResults = getTeamVoteResults(team, aiName, pin);
       return output.setContent(JSON.stringify(voteResults));
     }
 
@@ -1156,4 +1251,22 @@ function testVoteTimestampColumns() {
     });
   }
 }
+
+function testTeamVoteResults() {
+  Logger.log('Starting team vote results tests...');
+
+  // Test 1: Test with valid AI and PIN
+  Logger.log('\nTest 1: Testing with valid AI and PIN');
+  const validTest = {
+    parameter: {
+      team_vote_result: 'true',
+      team: 'A',
+      ai_name: 'อาร์ม EM',
+      pin: '6952'
+    }
+  };
+  const validResult = doGet(validTest);
+  Logger.log('Valid test result:', validResult.getContent());
+}
+
 

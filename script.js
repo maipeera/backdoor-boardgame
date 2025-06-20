@@ -2065,6 +2065,19 @@ function generateVotingInterfaceHTML(data) {
         </div>
       </div>
     </div>
+
+    ${currentRole === 'AI' ? `
+      <!-- AI Special Button -->
+      <div class="mt-6">
+        <button 
+          onclick="showDetailedVoteResults()"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 flex items-center justify-center gap-2"
+        >
+          <span class="text-xl">🤖</span>
+          <span>ดูข้อมูลการโหวตแบบละเอียด</span>
+        </button>
+      </div>
+    ` : ''}
   `;
 }
 
@@ -2090,4 +2103,127 @@ function generateVotingPlaceholderHTML() {
       <p class="text-gray-500">การโหวตจะเปิดในวัน outing\nถ้าวันนี้ outing แล้วยังไม่เปิด\nดื่มน้ำเก๊กฮวยเย็นๆรอก่อนนะ...</p>
     </div>
   `;
+}
+
+// Add this function to fetch detailed vote results
+async function fetchDetailedVoteResults() {
+  try {
+    // Get cached credentials
+    const cachedCredentials = getCachedUserCredentials();
+    if (!cachedCredentials) {
+      throw new Error('No cached credentials found. Please login again.');
+    }
+
+    const data = await apiRequest({
+      team_vote_result: 'true',
+      team: currentTeam,
+      ai_name: cachedCredentials.name,
+      pin: cachedCredentials.pin
+    });
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching detailed vote results:', error);
+    throw error;
+  }
+}
+
+// Add function to show detailed vote results popup
+function showDetailedVoteResults() {
+  // Create popup
+  const popup = document.createElement('div');
+  popup.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center z-50 p-4';
+  popup.innerHTML = `
+    <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b border-gray-700">
+        <h3 class="text-lg font-medium text-white">🤖 AI Vote Analysis</h3>
+        <button 
+          onclick="this.closest('.fixed').remove()" 
+          class="text-gray-400 hover:text-white transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-auto p-4">
+        <!-- Loading State -->
+        <div id="detailedVoteLoading" class="text-center py-8">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p class="text-gray-400 mt-4">กำลังวิเคราะห์ข้อมูลการโหวต...</p>
+        </div>
+        <!-- Content (initially hidden) -->
+        <div id="detailedVoteContent" class="hidden space-y-6">
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+
+  // Fetch and display data
+  fetchDetailedVoteResults()
+    .then(data => {
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch vote results');
+      }
+
+      const contentDiv = popup.querySelector('#detailedVoteContent');
+      const loadingDiv = popup.querySelector('#detailedVoteLoading');
+
+      // Function to generate vote info HTML
+      const generateVoteInfo = (votes) => {
+        return Object.entries(votes)
+          .map(([round, vote]) => {
+            if (!vote) return `<div class="text-gray-500">รอบที่ ${round.split('-')[1]}: ยังไม่ได้โหวต</div>`;
+            return `<div><span class="text-yellow-400">รอบที่ ${round.split('-')[1]}</span>: <span class="text-white">${vote}</span></div>`;
+          })
+          .join('');
+      };
+
+      // Generate HTML for each group
+      const generateGroupHTML = (title, players, emoji) => {
+        if (!players || players.length === 0) return '';
+        
+        return `
+          <div class="bg-gray-700/50 rounded-lg p-4">
+            <h4 class="text-lg font-semibold text-white mb-4">${emoji} ${title}</h4>
+            <div class="space-y-3">
+              ${players.map(player => `
+                <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
+                  <div class="flex items-center justify-between mb-3">
+                    <span class="text-white font-medium">${player.name}</span>
+                    <span class="text-blue-400 font-medium">Score: ${player.score}</span>
+                  </div>
+                  <div class="text-sm space-y-1">
+                    ${generateVoteInfo(player.votes)}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      };
+
+      // Generate full content
+      contentDiv.innerHTML = `
+        <div class="space-y-6">
+          ${generateGroupHTML('ผู้เล่นที่มีสิทธิ์ชนะจากการโหวต', data.data.winnable, '⚔️')}
+          ${generateGroupHTML('ผู้เล่นที่ไม่มีสิทธิ์ชนะ', data.data.not_winnable, '🛡️')}
+        </div>
+      `;
+
+      // Show content and hide loading
+      loadingDiv.classList.add('hidden');
+      contentDiv.classList.remove('hidden');
+    })
+    .catch(error => {
+      const loadingDiv = popup.querySelector('#detailedVoteLoading');
+      loadingDiv.innerHTML = `
+        <svg class="w-12 h-12 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <p class="text-red-500 mt-4">เกิดข้อผิดพลาด: ${error.message}</p>
+      `;
+    });
 }
