@@ -1766,8 +1766,47 @@ function updateVoteResultsDisplay(results) {
     `;
   }).join('');
 
+  // Generate current round information
+  let currentRoundInfo = '';
+  const activeRound = parseInt(appConfig.active_voting_round);
+  
+  if (activeRound >= 1 && activeRound <= 3) {
+    // Find the most voted player in current round
+    const currentRoundVotes = {};
+    sortedMembers.forEach(([name, data]) => {
+      const roundKey = `round${activeRound}`;
+      currentRoundVotes[name] = data.votesReceived[roundKey] || 0;
+    });
+    
+    // Sort by current round votes
+    const sortedByCurrentRound = Object.entries(currentRoundVotes)
+      .sort(([, a], [, b]) => b - a);
+    
+    if (sortedByCurrentRound.length > 0 && sortedByCurrentRound[0][1] > 0) {
+      const topPlayer = sortedByCurrentRound[0][0];
+      const topVotes = sortedByCurrentRound[0][1];
+      const roundColors = { 1: 'text-blue-400', 2: 'text-green-400', 3: 'text-purple-400' };
+      const roundColor = roundColors[activeRound] || 'text-gray-400';
+      
+      currentRoundInfo = `
+        <div class="text-center mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+          <div class="flex items-center justify-center gap-2 mb-1">
+            <span class="text-lg">🥇</span>
+            <span class="text-sm text-gray-400">ตัวเต็งประจำรอบที่ ${activeRound}</span>
+          </div>
+          <div class="text-base font-semibold">
+            <span class="text-white">${topPlayer}</span>
+            <span class="text-gray-400 text-sm">ได้รับแรงใจไป</span>
+            <span class="${roundColor} text-lg">${topVotes} โหวต</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+
   // Add legend
   const legendHTML = `
+    ${currentRoundInfo}
     <div class="flex items-center justify-center gap-4 mb-4 text-sm">
       <div class="flex items-center gap-1">
         <div class="w-3 h-3 bg-blue-600 rounded"></div>
