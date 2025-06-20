@@ -183,6 +183,7 @@ function getTeamVoteResults(team, aiName, pin) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const playerSheet = ss.getSheetByName('Player');
   const pinSheet = ss.getSheetByName('PIN');
+  const roleSheet = ss.getSheetByName('Role');
   
   // Get all data and headers
   const data = playerSheet.getDataRange().getValues();
@@ -197,6 +198,24 @@ function getTeamVoteResults(team, aiName, pin) {
   const vote3Idx = headers.indexOf("vote-3");
   const winnableIdx = headers.indexOf("winnable_by_vote");
   const scoreIdx = headers.indexOf("voting_score");
+  
+  // Get role mapping from Role sheet
+  const roleData = roleSheet.getDataRange().getValues();
+  const roleHeaders = roleData[0];
+  const roleIdIdx = roleHeaders.indexOf("id");
+  const roleNameIdx = roleHeaders.indexOf("Role");
+  const roleIconIdx = roleHeaders.indexOf("icon");
+  
+  // Create role ID to name and icon mapping
+  const roleMapping = {};
+  roleData.slice(1).forEach(row => {
+    if (row[roleIdIdx]) {
+      roleMapping[row[roleIdIdx]] = {
+        name: row[roleNameIdx],
+        icon: row[roleIconIdx]
+      };
+    }
+  });
   
   // Find AI's team
   let aiTeam = '';
@@ -224,35 +243,59 @@ function getTeamVoteResults(team, aiName, pin) {
       error: "แอบโกงปะ แย่นะ"
     };
   }
+
+  // Special roles that cannot win by voting
+  const notVotableRoles = ['AI', 'Backdoor', 'Backdoor Installer', 'Legacy Code'];
   
-  // Get all team members data (excluding AI)
-  const teamMembers = data.slice(1)
-    .filter(row => row[teamIdx] === team && row[roleIdx] !== "7") // Exclude role ID 7 (AI)
-    .map(row => ({
-      name: row[nameIdx],
-      votes: {
-        "vote-1": row[vote1Idx] || "",
-        "vote-2": row[vote2Idx] || "",
-        "vote-3": row[vote3Idx] || ""
-      },
-      winnable: row[winnableIdx] === true || row[winnableIdx] === "TRUE" || row[winnableIdx] === 1,
-      score: row[scoreIdx] || 0
-    }));
+  // Process team members
+  const winnable = [];
+  const notWinnable = [];
+  const notVotable = [];
   
-  // Separate into winnable and not winnable groups
-  const winnableMembers = teamMembers
-    .filter(member => member.winnable)
-    .sort((a, b) => b.score - a.score); // Sort by score descending
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (row[teamIdx] === team) {
+      const roleId = row[roleIdx];
+      const roleInfo = roleMapping[roleId] || { name: 'Unknown Role', icon: '❓' };
+      
+      // Skip if this is the AI making the request
+      if (row[nameIdx] === aiName) continue;
+      
+      const playerData = {
+        name: row[nameIdx],
+        role: roleInfo.name,
+        roleIcon: roleInfo.icon,
+        votes: {
+          'vote-1': row[vote1Idx],
+          'vote-2': row[vote2Idx],
+          'vote-3': row[vote3Idx]
+        },
+        score: row[scoreIdx]
+      };
+
+      // Categorize based on role and winnable status
+      if (notVotableRoles.includes(roleInfo.name)) {
+        notVotable.push(playerData);
+      } else if (row[winnableIdx]) {
+        winnable.push(playerData);
+      } else {
+        notWinnable.push(playerData);
+      }
+    }
+  }
   
-  const notWinnableMembers = teamMembers
-    .filter(member => !member.winnable)
-    .sort((a, b) => b.score - a.score); // Sort by score descending
+  // Sort each array by score in descending order
+  const sortByScore = (a, b) => b.score - a.score;
+  winnable.sort(sortByScore);
+  notWinnable.sort(sortByScore);
+  notVotable.sort(sortByScore);
   
   return {
     success: true,
     data: {
-      winnable: winnableMembers,
-      not_winnable: notWinnableMembers
+      winnable: winnable,
+      not_winnable: notWinnable,
+      not_votable: notVotable
     }
   };
 }

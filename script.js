@@ -2136,7 +2136,7 @@ function showDetailedVoteResults() {
   popup.innerHTML = `
     <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
       <div class="flex justify-between items-center p-4 border-b border-gray-700">
-        <h3 class="text-lg font-medium text-white">🤖 AI Vote Analysis</h3>
+        <h3 class="text-lg font-medium text-white">🤖 AI Vote Summary</h3>
         <button 
           onclick="this.closest('.fixed').remove()" 
           class="text-gray-400 hover:text-white transition-colors"
@@ -2191,11 +2191,14 @@ function showDetailedVoteResults() {
             <div class="space-y-3">
               ${players.map(player => `
                 <div class="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
-                  <div class="flex items-center justify-between mb-3">
-                    <span class="text-white font-medium">${player.name}</span>
+                  <div class="flex items-center justify-between mb-2">
+                    <div>
+                      <span class="text-sm text-yellow-400">${getRoleEmoji(player.role)}</span>
+                      <span class="text-white font-medium">${player.name}</span>
+                    </div>
                     <span class="text-blue-400 font-medium">Score: ${player.score}</span>
                   </div>
-                  <div class="text-sm space-y-1">
+                  <div class="space-y-1 text-sm">
                     ${generateVoteInfo(player.votes)}
                   </div>
                 </div>
@@ -2205,11 +2208,23 @@ function showDetailedVoteResults() {
         `;
       };
 
+      // Find the Backdoor player
+      const backdoorPlayer = data.data.not_votable.find(player => player.role === 'Backdoor');
+
       // Generate full content
       contentDiv.innerHTML = `
+        ${backdoorPlayer ? `
+          <div class="bg-red-900/30 rounded-lg border border-red-700/50 p-4 mb-6">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">${getRoleEmoji(backdoorPlayer.role)}</span>
+              <h4 class="text-lg font-semibold text-red-400">Backdoor คือ ${backdoorPlayer.name}</h4>
+            </div>
+          </div>
+        ` : ''}
         <div class="space-y-6">
-          ${generateGroupHTML('ผู้เล่นที่มีสิทธิ์ชนะจากการโหวต', data.data.winnable, '⚔️')}
-          ${generateGroupHTML('ผู้เล่นที่ไม่มีสิทธิ์ชนะ', data.data.not_winnable, '🛡️')}
+          ${generateGroupHTML('ผู้เล่นที่มีสิทธิ์ชนะจากการโหวต', data.data.winnable, '👑')}
+          ${generateGroupHTML('ผู้เล่นที่ไม่มีสิทธิ์ชนะ', data.data.not_winnable, '🥹')}
+          ${generateGroupHTML('ผู้เล่นที่ไม่รวมชนะจากการโหวต', data.data.not_votable, '😂')}
         </div>
       `;
 
