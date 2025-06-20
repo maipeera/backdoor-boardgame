@@ -1502,6 +1502,7 @@ async function clearCache() {
 
     // Clear localStorage
     localStorage.clear();
+    clearAllCookies();
     
     // Show success message
     toast.innerHTML = `
